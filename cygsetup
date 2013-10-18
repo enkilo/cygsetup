@@ -79,7 +79,12 @@ config_read()
 		. $CONF
 	fi
 }
-
+get_arch_suffix()
+{
+   case "${MACHINE=`uname -m`}" in
+     i[3-6]86) echo x86 ;;
+   esac
+}
 #
 # get mirror list 
 # 
