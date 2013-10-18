@@ -83,6 +83,7 @@ get_arch_suffix()
 {
    case "${MACHINE=`uname -m`}" in
      i[3-6]86) echo x86 ;;
+     x86?64 |amd64 |x64) echo x86_64 ;;
    esac
 }
 #
@@ -147,8 +148,8 @@ load_setup_ini()
 	# unpack archive 
 	case $mirror_url in
 		http:* | ftp:*)
-			$show eval "(cd $DB_ROOT; wget -nd -O setup.bz2 $mirror_url/setup.bz2) || exit 1"
-			$run eval "(cd $DB_ROOT; wget -nd -O setup.bz2 $mirror_url/setup.bz2) || exit 1"
+			$show eval "(cd $DB_ROOT; wget -nd -O setup.bz2 $mirror_url/$(get_arch_suffix)/setup.bz2) || exit 1"
+			$run eval "(cd $DB_ROOT; wget -nd -O setup.bz2 $mirror_url/$(get_arch_suffix)/setup.bz2) || exit 1"
 			$show eval "(cd $DB_ROOT; bzip2 -d -c setup.bz2  >setup.ini)"
 			$run eval "(cd $DB_ROOT; bzip2 -d -c setup.bz2  >setup.ini)"
 			setup_ini_loaded=1
