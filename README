@@ -1,0 +1,82 @@
+CYGSETUP is a shell script whichs provides a (most complete) 
+command line installer for cygwin packages. 
+
+The command line interface and options is leaned on the rpm installer. 
+
+Some notes: 
+- cygsetup saves its configuration into /etc/setup/cygsetup.conf 
+- A short help could be found calling cygsetup without any parameters. 
+- --mirror accept a local mirror too with an url  file:<path> 
+
+How to install
+--------------
+
+copy 'cygsetup' into /bin or usr/bin 
+
+1. run 'cygsetup --mirror' to download and see the list of mirrors 
+2. run 'cygsetup --mirror=<number>' to select a mirror
+2b. alternative you can use a urls e.g. 
+		cygsetup --mirror=http://... 
+		cygsetup --mirror=ftp://... 
+		cygsetup --mirror=file:<path>
+		
+3. run 'cygsetup -l -a' to see a list of available packages 
+4. run 'cygsetup -i <package>' to install a package
+
+A complete command list is shown below: 
+
+
+$ ./cygsetup --help
+usage: cygsetup <mode> <options>     - generic command format
+
+   --mirror                 - list all mirrors
+   --mirror=<num>           - set active mirror and download recent setup.ini
+
+   [-q | --query] [<opt>]   - query informations about installed packages
+    -q -l [-a | --all]      - query informations of all installed packages
+    -q -l <pkg>             - query file of installed package <pkg>
+    -q -f <file>            - find package for file <file>
+
+   [-l | --list] <opt>      - list informations about available packages from recent mirror
+    -l <pkg>                - list informations about available <pkg>
+    -l [-a | -all]          - list informations about all available
+
+   [-i | --install] <pkg>   - install package <pkg>
+
+   [-u | --upgrade] <opt>   - upgrade package (please stop any running app)
+    -u <pkg>                - upgrade package <pkg>
+     u [-a | --all]               - upgrade all installed packages
+
+   [-r | --reinstall] <pkg> - reinstall package <pkg>
+
+   [-e | --erase] <pkg>     - remove package <pkg>
+
+
+LIMITATIONS
+-----------
+- does not overwrite any opened dll so make sure to close any cygwin application 
+  intended to update, especially bash and the cygwin package could not be updated 
+
+HISTORY
+-------
+
+1.2 
+- made real cygwin binary package 
+- added download source options (-ds)
+- use fixes name for downloaded package config
+- some minor fixes
+
+1.2 
+- first version
+
+
+
+
+
+Ralf Habacker 
+
+KDE-cygwin http://kde-cygwin.sf.net 
+
+
+
+
