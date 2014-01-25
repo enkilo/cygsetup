@@ -29,6 +29,7 @@
 #------------------------------------------------------------
 # cyglib.sh is included below 
 #------------------------------------------------------------
+
 #ROOT=""
 DB_ROOT="$ROOT/etc/setup"
 DB="$DB_ROOT/installed.db"
@@ -44,12 +45,21 @@ default_mirror="file:/d"
 mirror=1
 mirror_url=
 
+get_arch()
+{
+  case `uname -m` in
+    i[3-6]86) arch=x86 ;;
+    *64) arch=x64 ;;
+  esac
+}
+
 config_write()
 {
 	echo "ROOT=$root" >$CONF
-	echo "DB_ROOT=$DB_ROOT" >$CONF
-	echo "CONF=$CONF" >$CONF
-	echo "area=\"$area\"" >$CONF
+	echo "DB_ROOT=$DB_ROOT" >>$CONF
+	echo "CONF=$CONF" >>$CONF
+	echo "arch=$arch" >>$CONF
+	echo "area=\"$area\"" >>$CONF
 	echo "default_mirror=$default_mirror" >>$CONF
 	echo "mirror=$mirror" >>$CONF
 	echo "mirror_url=$mirror_url" >>$CONF
@@ -62,6 +72,7 @@ config_print()
 	echo "ROOT=$root" 
 	echo "DB_ROOT=$DB_ROOT" 
 	echo "CONF=$CONF"
+	echo "arch=$arch"
 	echo "area=\"$area\""
 	echo "default_mirror=$default_mirror"
 	echo "mirror=$mirror"
@@ -77,6 +88,11 @@ config_read()
 		config_write
 	else 
 		. $CONF
+	fi
+	
+	if test "x$arch" = x; then
+	  get_arch
+	  config_write
 	fi
 }
 
@@ -142,22 +158,22 @@ load_setup_ini()
 	# unpack archive 
 	case $mirror_url in
 		http:* | ftp:*)
-			$show eval "(cd $DB_ROOT; wget -nd -O setup.bz2 $mirror_url/setup.bz2) || exit 1"
-			$run eval "(cd $DB_ROOT; wget -nd -O setup.bz2 $mirror_url/setup.bz2) || exit 1"
+			$show eval "(cd $DB_ROOT; wget -nd -O setup.bz2 $mirror_url/$arch/setup.bz2) || exit 1"
+			$run eval "(cd $DB_ROOT; wget -nd -O setup.bz2 $mirror_url/$arch/setup.bz2) || exit 1"
 			$show eval "(cd $DB_ROOT; bzip2 -d -c setup.bz2  >setup.ini)"
 			$run eval "(cd $DB_ROOT; bzip2 -d -c setup.bz2  >setup.ini)"
 			setup_ini_loaded=1
 			;;
 		file:*)
 			url=`echo $mirror_url | sed 's,^file:,,g'`
-			$show "(bzip2 -d -c $url/setup.bz2 >$DB_ROOT/setup.ini)  || exit 1"
-			$run eval "(bzip2 -d -c $url/setup.bz2 >$DB_ROOT/setup.ini)  || exit 1"
+			$show "(bzip2 -d -c $url/$arch/setup.bz2 >$DB_ROOT/setup.ini)  || exit 1"
+			$run eval "(bzip2 -d -c $url/$arch/setup.bz2 >$DB_ROOT/setup.ini)  || exit 1"
 			setup_ini_loaded=1
 			;;
 		/*)
 			url=$mirror_url;
-			$show "(bzip2 -d -c $url/setup.bz2 >$DB_ROOT/setup.ini)  || exit 1"
-			$run eval "(bzip2 -d -c $url/setup.bz2 >$DB_ROOT/setup.ini)  || exit 1"
+			$show "(bzip2 -d -c $url/$arch/setup.bz2 >$DB_ROOT/setup.ini)  || exit 1"
+			$run eval "(bzip2 -d -c $url/$arch/setup.bz2 >$DB_ROOT/setup.ini)  || exit 1"
 			setup_ini_loaded=1
 			;;
 	esac
