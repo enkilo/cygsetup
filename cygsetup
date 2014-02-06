@@ -37,8 +37,8 @@ CONF="$DB_ROOT/cygsetup.conf"
 #
 # default settings 
 # 
-show=: 
-#show=echo
+show=:
+show=echo
 area="Europe"
 default_mirror="file:/d" 
 mirror=1
@@ -146,30 +146,31 @@ load_setup_ini()
 {
 rm -f "$DB_ROOT/setup.ini"
 for url in $mirror_url; do
-	echo $url
+	echo $url 1>&2
 	# unpack archive 
 	case $url in
 		http:* | ftp:*)
-			$show eval "(cd $DB_ROOT; wget -nd -O setup.bz2 $url/$(get_arch_suffix)/setup.bz2) || exit 1"
-			$run eval "(cd $DB_ROOT; wget -nd -O setup.bz2 $url/$(get_arch_suffix)/setup.bz2) || exit 1"
-			$show eval "(cd $DB_ROOT; bzip2 -d -c setup.bz2  >>setup.ini)"
-			$run eval "(cd $DB_ROOT; bzip2 -d -c setup.bz2  >>setup.ini)"
+		cmd="(cd \"\$DB_ROOT\"; URL=\"$url/$(get_arch_suffix)\"; wget -nd -O - \"\$URL/setup.bz2\" | bzip2 -d -c - | sed \"\\\\|/| s|^\\\\([a-z]*\\\\):\\\\s\\\\+|\\\\1: \${URL%/$(get_arch_suffix)}/|\")  || exit 1"
+			$show eval "$cmd"
+			$run eval "$cmd"
+#			$show eval "(cd \"\$DB_ROOT\"; bzip2 -d -c -  >>setup.ini)"
+#			$run eval "(cd \"\$DB_ROOT\"; bzip2 -d -c setup.bz2  >>setup.ini)"
 			setup_ini_loaded=1
 			;;
 		file:*)
 			url=`echo $url | sed 's,^file:,,g'`
-			$show "(bzip2 -d -c $url/setup.bz2 >>$DB_ROOT/setup.ini)  || exit 1"
-			$run eval "(bzip2 -d -c $url/setup.bz2 >>$DB_ROOT/setup.ini)  || exit 1"
+			$show "(bzip2 -d -c $url/setup.bz2)  || exit 1"
+			$run eval "(bzip2 -d -c $url/setup.bz2)  || exit 1"
 			setup_ini_loaded=1
 			;;
 		/*)
 			url=$url;
-			$show "(bzip2 -d -c $url/setup.bz2 >>$DB_ROOT/setup.ini)  || exit 1"
-			$run eval "(bzip2 -d -c $url/setup.bz2 >>$DB_ROOT/setup.ini)  || exit 1"
+			$show "(bzip2 -d -c $url/setup.bz2)  || exit 1"
+			$run eval "(bzip2 -d -c $url/setup.bz2)  || exit 1"
 			setup_ini_loaded=1
 			;;
-	esac
-done
+	esac 
+done |tee "$DB_ROOT/setup.ini"
 	config_write
 }
 
