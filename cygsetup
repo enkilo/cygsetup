@@ -50,9 +50,9 @@ config_write()
 	echo "DB_ROOT=$DB_ROOT" >$CONF
 	echo "CONF=$CONF" >$CONF
 	echo "area=\"$area\"" >$CONF
-	echo "default_mirror=$default_mirror" >>$CONF
-	echo "mirror=$mirror" >>$CONF
-	echo "mirror_url=$mirror_url" >>$CONF
+	echo "default_mirror='$default_mirror'" >>$CONF
+	echo "mirror='$mirror'" >>$CONF
+	echo "mirror_url='$mirror_url'" >>$CONF
 	echo "setup_ini=$DB_ROOT/setup.ini" >>$CONF
 	echo "setup_ini_loaded=$setup_ini_loaded" >>$CONF
 }
@@ -63,9 +63,9 @@ config_print()
 	echo "DB_ROOT=$DB_ROOT" 
 	echo "CONF=$CONF"
 	echo "area=\"$area\""
-	echo "default_mirror=$default_mirror"
-	echo "mirror=$mirror"
-	echo "mirror_url=$mirror_url"
+	echo "default_mirror='$default_mirror'"
+	echo "mirror='$mirror'"
+	echo "mirror_url='$mirror_url'"
 	echo "setup_ini=$DB_ROOT/setup.ini"
 	echo "setup_ini_loaded=$setup_ini_loaded"
 }
@@ -114,9 +114,9 @@ build_area_list()
 # 
 set_new_mirror()
 {
-	mirror=$1
-	if ! test `echo $1 | grep "^[0-9]" 2>/dev/null`; then 
-		mirror_url=$1
+	mirror=$*
+	if ! test `echo $* | grep "^[0-9]" 2>/dev/null`; then 
+		mirror_url=$*
 	else 
 		for i in $all_areas; do
 			area_name=`echo $i | sed 's,^.*~,,g;s,#, ,g'`
@@ -127,8 +127,8 @@ set_new_mirror()
 			fi
 		done
 	fi
-	echo "mirror=$1"
-	echo "mirror_url=$mirror_url"
+	echo "mirror='"$*"'"
+	echo "mirror_url='"$mirror_url"'"
 }
 
 list_all_mirrors()
@@ -144,29 +144,32 @@ list_all_mirrors()
 
 load_setup_ini()
 {
-	echo $mirror_url
+rm -f "$DB_ROOT/setup.ini"
+for url in $mirror_url; do
+	echo $url
 	# unpack archive 
-	case $mirror_url in
+	case $url in
 		http:* | ftp:*)
-			$show eval "(cd $DB_ROOT; wget -nd -O setup.bz2 $mirror_url/$(get_arch_suffix)/setup.bz2) || exit 1"
-			$run eval "(cd $DB_ROOT; wget -nd -O setup.bz2 $mirror_url/$(get_arch_suffix)/setup.bz2) || exit 1"
-			$show eval "(cd $DB_ROOT; bzip2 -d -c setup.bz2  >setup.ini)"
-			$run eval "(cd $DB_ROOT; bzip2 -d -c setup.bz2  >setup.ini)"
+			$show eval "(cd $DB_ROOT; wget -nd -O setup.bz2 $url/$(get_arch_suffix)/setup.bz2) || exit 1"
+			$run eval "(cd $DB_ROOT; wget -nd -O setup.bz2 $url/$(get_arch_suffix)/setup.bz2) || exit 1"
+			$show eval "(cd $DB_ROOT; bzip2 -d -c setup.bz2  >>setup.ini)"
+			$run eval "(cd $DB_ROOT; bzip2 -d -c setup.bz2  >>setup.ini)"
 			setup_ini_loaded=1
 			;;
 		file:*)
-			url=`echo $mirror_url | sed 's,^file:,,g'`
-			$show "(bzip2 -d -c $url/setup.bz2 >$DB_ROOT/setup.ini)  || exit 1"
-			$run eval "(bzip2 -d -c $url/setup.bz2 >$DB_ROOT/setup.ini)  || exit 1"
+			url=`echo $url | sed 's,^file:,,g'`
+			$show "(bzip2 -d -c $url/setup.bz2 >>$DB_ROOT/setup.ini)  || exit 1"
+			$run eval "(bzip2 -d -c $url/setup.bz2 >>$DB_ROOT/setup.ini)  || exit 1"
 			setup_ini_loaded=1
 			;;
 		/*)
-			url=$mirror_url;
-			$show "(bzip2 -d -c $url/setup.bz2 >$DB_ROOT/setup.ini)  || exit 1"
-			$run eval "(bzip2 -d -c $url/setup.bz2 >$DB_ROOT/setup.ini)  || exit 1"
+			url=$url;
+			$show "(bzip2 -d -c $url/setup.bz2 >>$DB_ROOT/setup.ini)  || exit 1"
+			$run eval "(bzip2 -d -c $url/setup.bz2 >>$DB_ROOT/setup.ini)  || exit 1"
 			setup_ini_loaded=1
 			;;
 	esac
+done
 	config_write
 }
 
@@ -555,8 +558,8 @@ fi
 
 case $mode in 	
 	--mirror=*)
-		value=`echo $mode | sed 's,^.*=,,g'` 
-		set_mirror=$value
+		value="${value:+$value }`echo $mode | sed 's,^[^=]*=,,'`"
+		set_mirror="$value"
 		setup_ini_loaded=
 		get_mirror_list
 		build_area_list
