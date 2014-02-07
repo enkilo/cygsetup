@@ -93,7 +93,7 @@ get_mirror_list()
 {
 	if ! test -f "$DB_ROOT/mirrors.lst"; then 
 		(wget -O - http://www.cygwin.com/mirrors.lst
-		wget -O - http://sourceware.org/mirrors.html  |sed -n 's,.*>\([^< \t:]\+\)[: \t]*<a href="\([^"]*\)\">\([^<]*\)</a>.*,\2cygwinports;\3;\1;\1,p' | sed 's,\s*,,g'
+		wget -O - http://sourceware.org/mirrors.html  |sed -n 's,.*>\([^< \t:]\+\)[: \t]*<a href="\([^"]*\)/*\">\([^<]*\)</a>.*,\2/cygwinports;\3;\1;\1,p' | sed '/rsync:/d; s,\s*,,g'
 		
 		) >"$DB_ROOT/mirrors.lst"
 	fi
