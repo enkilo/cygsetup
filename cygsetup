@@ -150,7 +150,7 @@ for url in $mirror_url; do
 	# unpack archive 
 	case $url in
 		http:* | ftp:*)
-		cmd="(cd \"\$DB_ROOT\"; URL=\"$url/$(get_arch_suffix)\"; wget -nd -O - \"\$URL/setup.bz2\" | bzip2 -d -c - | sed \"\\\\|/| s|^\\\\([a-z]*\\\\):\\\\s\\\\+|\\\\1: \${URL%/$(get_arch_suffix)}/|\")  || exit 1"
+		cmd="(cd \"\$DB_ROOT\"; URL=\"$url/$(get_arch_suffix)\"; wget -O - \"\$URL/setup.bz2\" | bzip2 -d -c - | sed \"\\\\|/| s|^\\\\([a-z]*\\\\):\\\\s\\\\+|\\\\1: \${URL%/$(get_arch_suffix)}/|\")  || exit 1"
 			$show eval "$cmd"
 			$run eval "$cmd"
 #			$show eval "(cd \"\$DB_ROOT\"; bzip2 -d -c -  >>setup.ini)"
@@ -170,7 +170,7 @@ for url in $mirror_url; do
 			setup_ini_loaded=1
 			;;
 	esac 
-done |tee "$DB_ROOT/setup.ini"
+done >"$DB_ROOT/setup.ini"
 	config_write
 }
 
@@ -555,6 +555,16 @@ if test $# -eq "0"; then
 	print_help
 fi 
 
+
+while :; do
+  case "$1" in
+    --mirror=*) set_mirror="${set_mirror:+$set_mirror }${1#*=}"; shift ;;
+    *) break ;;
+  esac
+done
+
+
+
 mode=$1; shift
 if test $# -gt "0"; then 
 	option=$1; shift
@@ -563,10 +573,7 @@ if test $# -gt "0"; then
 	params=$*
 fi
 
-case $mode in 	
-	--mirror=*)
-		value="${value:+$value }`echo $mode | sed 's,^[^=]*=,,'`"
-		set_mirror="$value"
+if [ "$set_mirror" ]; then
 		setup_ini_loaded=
 		get_mirror_list
 		build_area_list
@@ -576,194 +583,199 @@ case $mode in
 			load_setup_ini $mirror
 		fi
 		config_print
-		;;
+fi
 
-	--mirror)
-		get_mirror_list
-		build_area_list
-		list_all_mirrors $mirror
-		;;
-
-	--set-area*)
-		area=$value
-		;;
-	
-	-q | --query)
-    	case $option in 
-    		# all packages 
-    		-a |--all)
-    			cat $DB | sed 's#.tar.*##g' | gawk '{ n = match($2,/-[0-9][^/a-zA-Z]/); if (n > 0) release=substr($2,n+1); printf("%-20s %s\n", $1,release) }' | sort
-    		    ;;
-    		# list package files  
-    		-l | --list)
-    			if test -z "$params"; then
-    				echo "usage: $0 -q -l <package>"
-    				exit 1
-    			fi
-    			$0 -q "^$params"
-    			if test -e "$DB_ROOT/$params.lst.gz"; then
-    				find $DB_ROOT -name "$params.lst.gz" -exec zcat {} \; | grep -v "/$" | gawk '{ print "\t" $1 }'
-    			else		
-    				echo "no files available" 
-    			fi 
-    			;;
-    		# find package 
-    		-f | --files)
-    			PACKAGES=`find $DB_ROOT -name '*.lst.gz'`
-    			for i in $PACKAGES; do 
-    				FILES=`zcat $i | egrep "$params"`
-    				if test -n "$FILES"; then
-    					PACKAGE_NAME=`echo $i | sed "s#.lst.gz##; s#$DB_ROOT/##;"`
-    					echo $PACKAGE_NAME
-    					for j in $FILES; do 
-    						echo -e "\t" $j
-    					done
-    					echo 
-    				fi
-    			done
-    			;;
-    		-d | --deps)
-    			for i in `echo $params`; do 
-    				build_dep_list "$i"
-    				echo "$ret"
-    			done
-    			;;
-        esac
-        ;;
-	# check files of a package 
-	-c | --check)
-		# get installed packages 
-		PACKAGES=`cat $DB | grep -v "INSTALLED" | gawk '{ print db_root "/" $1 ".lst.gz" }' db_root=$DB_ROOT`
-		for i in $PACKAGES; do 
-			# get file list 
-			FILES=`zcat $i | grep -v "/$i"`
-			if test -n "$verbose"; then 
-				echo -n "checking package $i"
-			fi 
-
-			# create package name 
-	
-			# check if file is installed 
-			repair=""
-			for j in $FILES; do 
-				if test -f "/$j"; then
-					echo ""
-				else 
-					repair="1"
-					echo "file $j is deleted" 
-				fi
-			done 
-			if test -n "$repair"; then 
-				if test -n "$verbose"; then 
-					echo "... has to be repaired "
-				else 
-					echo "$i"
-				fi
-			else 
-				echo "" 
-			fi	
-		done
-		;;			
-#		*)
-#			if test -z "$option"; then
-#				echo "usage: $0 -q <package>"
-#				exit 1
-#			fi
-#			cat $DB | grep "$option" | sed 's#.tar.*##g' | gawk '{ n = match($2,/-[0-9][^/a-zA-Z]/); if (n > 0) release=substr($2,n+1); if (release == "") release = "no release available"; printf("%-20s %s\n", $1,release) }' | sort
-#			;;
-
-	# search for packages in a local package tree 
-	-l | --list)
-    	case $option in 
-    		# all packages 
-    		-a | --all)
-    			list_all_packages
-    		;;
-    		*) 
-    			for i in `echo $option $params`; do 
-    				list_package "$i"
-    			done
-    		;;
-		esac
-    	;;
-
-	# install packages from a local package tree 
-	-r | --reinstall)
-		case $option in 
-			# all packages 
-			-a | --all)
-			;;
-			*)
-			pkgname=""
-			for i in `echo $option $params`; do 
-# do not reinstall depending packages
-#				build_dep_list "$i"
-				get_install_url_path "$i"
-				install_packages "$ret"	
-			done 
-		esac
-	    ;;	
-
-	# download source 
-	-ds)
-			pkgname=""
-			for i in `echo $option $params`; do 
-				get_source_url_path "$i"
-				install_packages "$ret"	"source"
-			done
-	    ;;
-	
-	# upgrade packages 
-	-u | --upgrade)
-		case $option in 
-			# all packages 
-			-a | --all)
-				list_packages_for_upgrade "" 
-				get_install_url_path "$ret"
-				#install_packages "$ret"
-			;;
-			*)
-			pkgname=""
-			for i in `echo $option $params`; do 
-				list_packages_for_upgrade "$i"
-				get_install_url_path "$ret"
-				install_packages "$ret"	
-			done 
-		esac
-	    ;;	
-
-
-	# install packages from a local package tree 
-	-i | --install)
-		case $option in 
-			# all packages 
-			-a | --all)
-			;;
-			*)
-			pkgname=""
-			for i in `echo $option $params`; do 
-				build_dep_list "$i"
-				check_for_not_installed_packages "$ret"
-				get_install_url_path "$ret"
-				install_packages "$ret"
-			done
-		esac
-	    ;;	
-
-	# remove installed package 
-	-e | --erase)
-		case $option in 
-			*)
-			for i in `echo $option $params`; do 
-				echo $i
-				remove_package_from_cygwin_db "$i"
-			done 
-		esac
-	    ;;	
-
-	# help 
-	-h | --help)
-		print_help
-	    ;;		
-	
-esac
+while :; do
+  case $mode in
+  	--mirror)
+  		get_mirror_list
+  		build_area_list
+  		list_all_mirrors $mirror
+  		;;
+  
+  	--set-area*)
+  		area=$value
+  		;;
+  	
+  	-q | --query)
+      	case $option in 
+      		# all packages 
+      		-a |--all)
+      			cat $DB | sed 's#.tar.*##g' | gawk '{ n = match($2,/-[0-9][^/a-zA-Z]/); if (n > 0) release=substr($2,n+1); printf("%-20s %s\n", $1,release) }' | sort
+      		    ;;
+      		# list package files  
+      		-l | --list)
+      			if test -z "$params"; then
+      				echo "usage: $0 -q -l <package>"
+      				exit 1
+      			fi
+      			$0 -q "^$params"
+      			if test -e "$DB_ROOT/$params.lst.gz"; then
+      				find $DB_ROOT -name "$params.lst.gz" -exec zcat {} \; | grep -v "/$" | gawk '{ print "\t" $1 }'
+      			else		
+      				echo "no files available" 
+      			fi 
+      			;;
+      		# find package 
+      		-f | --files)
+      			PACKAGES=`find $DB_ROOT -name '*.lst.gz'`
+      			for i in $PACKAGES; do 
+      				FILES=`zcat $i | egrep "$params"`
+      				if test -n "$FILES"; then
+      					PACKAGE_NAME=`echo $i | sed "s#.lst.gz##; s#$DB_ROOT/##;"`
+      					echo $PACKAGE_NAME
+      					for j in $FILES; do 
+      						echo -e "\t" $j
+      					done
+      					echo 
+      				fi
+      			done
+      			;;
+      		-d | --deps)
+      			for i in `echo $params`; do 
+      				build_dep_list "$i"
+      				echo "$ret"
+      			done
+      			;;
+          esac
+          ;;
+  	# check files of a package 
+  	-c | --check)
+  		# get installed packages 
+  		PACKAGES=`cat $DB | grep -v "INSTALLED" | gawk '{ print db_root "/" $1 ".lst.gz" }' db_root=$DB_ROOT`
+  		for i in $PACKAGES; do 
+  			# get file list 
+  			FILES=`zcat $i | grep -v "/$i"`
+  			if test -n "$verbose"; then 
+  				echo -n "checking package $i"
+  			fi 
+  
+  			# create package name 
+  	
+  			# check if file is installed 
+  			repair=""
+  			for j in $FILES; do 
+  				if test -f "/$j"; then
+  					echo ""
+  				else 
+  					repair="1"
+  					echo "file $j is deleted" 
+  				fi
+  			done 
+  			if test -n "$repair"; then 
+  				if test -n "$verbose"; then 
+  					echo "... has to be repaired "
+  				else 
+  					echo "$i"
+  				fi
+  			else 
+  				echo "" 
+  			fi	
+  		done
+  		;;			
+  #		*)
+  #			if test -z "$option"; then
+  #				echo "usage: $0 -q <package>"
+  #				exit 1
+  #			fi
+  #			cat $DB | grep "$option" | sed 's#.tar.*##g' | gawk '{ n = match($2,/-[0-9][^/a-zA-Z]/); if (n > 0) release=substr($2,n+1); if (release == "") release = "no release available"; printf("%-20s %s\n", $1,release) }' | sort
+  #			;;
+  
+  	# search for packages in a local package tree 
+  	-l | --list)
+      	case $option in 
+      		# all packages 
+      		-a | --all)
+      			list_all_packages
+      		;;
+      		*) 
+      			for i in `echo $option $params`; do 
+      				list_package "$i"
+      			done
+      		;;
+  		esac
+      	;;
+  
+  	# install packages from a local package tree 
+  	-r | --reinstall)
+  		case $option in 
+  			# all packages 
+  			-a | --all)
+  			;;
+  			*)
+  			pkgname=""
+  			for i in `echo $option $params`; do 
+  # do not reinstall depending packages
+  #				build_dep_list "$i"
+  				get_install_url_path "$i"
+  				install_packages "$ret"	
+  			done 
+  		esac
+  	    ;;	
+  
+  	# download source 
+  	-ds)
+  			pkgname=""
+  			for i in `echo $option $params`; do 
+  				get_source_url_path "$i"
+  				install_packages "$ret"	"source"
+  			done
+  	    ;;
+  	
+  	# upgrade packages 
+  	-u | --upgrade)
+  		case $option in 
+  			# all packages 
+  			-a | --all)
+  				list_packages_for_upgrade "" 
+  				get_install_url_path "$ret"
+  				#install_packages "$ret"
+  			;;
+  			*)
+  			pkgname=""
+  			for i in `echo $option $params`; do 
+  				list_packages_for_upgrade "$i"
+  				get_install_url_path "$ret"
+  				install_packages "$ret"	
+  			done 
+  		esac
+  	    ;;	
+  
+  
+  	# install packages from a local package tree 
+  	-i | --install)
+  		case $option in 
+  			# all packages 
+  			-a | --all)
+  			;;
+  			*)
+  			pkgname=""
+  			for i in `echo $option $params`; do 
+  				build_dep_list "$i"
+  				check_for_not_installed_packages "$ret"
+  				get_install_url_path "$ret"
+  				install_packages "$ret"
+  			done
+  		esac
+  	    ;;	
+  
+  	# remove installed package 
+  	-e | --erase)
+  		case $option in 
+  			*)
+  			for i in `echo $option $params`; do 
+  				echo $i
+  				remove_package_from_cygwin_db "$i"
+  			done 
+  		esac
+  	    ;;	
+  
+  	# help 
+  	-h | --help)
+  		print_help
+  	    ;;		
+  	
+  esac
+  
+  break
+done
