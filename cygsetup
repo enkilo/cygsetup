@@ -38,7 +38,7 @@ CONF="$DB_ROOT/cygsetup.conf"
 # default settings 
 # 
 show=:
-show=echo
+#show=echo
 area="Europe"
 default_mirror="file:/d" 
 mirror=1
@@ -383,10 +383,16 @@ get_source_url_path()
 # $2 - 'source' - install source package 
 install_packages()
 {
+$show "install_packages \""$1"\" \""$2"\""
 	echo "------- install packages --------"
 	for i in $1; do
 		name=`echo $i | gawk 'BEGIN {FS="#";} { print $1}'`
 		relpath=`echo $i | gawk 'BEGIN {FS="#";} { print $2}'`
+		
+		case "$relpath" in
+		 *://*) abspath="$relpath" ;;
+		 *) abspath="$mirror_url/$relpath" ;;
+		 esac
 		file_name=`basename $relpath` 
 		tmp_dir_name=/tmp/`dirname $relpath` 
 		mkdir -p $tmp_dir_name
@@ -401,7 +407,7 @@ install_packages()
 			http:* | ftp:*)
 				# if file is available check integrity 
 				if ! test -f "$tmp_dir_name/$file_name" || test -n "`bzip2 -t $tmp_dir_name/$file_name 2>&1`"; then 
-					$run eval "(cd $tmp_dir_name; rm "$file_name.*" 2>/dev/null; wget -nd -c $mirror_url/$relpath)"
+					$run eval "(cd $tmp_dir_name; rm "$file_name.*" 2>/dev/null; wget -nd -c $abspath)"
 				fi
 				if test "$2" = "source"; then 
 					$run eval "tar -C $myroot -xvjf $tmp_dir_name/$file_name"
