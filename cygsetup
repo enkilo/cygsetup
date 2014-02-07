@@ -92,7 +92,10 @@ get_arch_suffix()
 get_mirror_list()
 {
 	if ! test -f "$DB_ROOT/mirrors.lst"; then 
-		(cd $DB_ROOT ; wget -nd http://www.cygwin.com/mirrors.lst)
+		(wget -O - http://www.cygwin.com/mirrors.lst
+		wget -O - http://sourceware.org/mirrors.html  |sed -n 's,.*>\([^< \t:]\+\)[: \t]*<a href="\([^"]*\)\">\([^<]*\)</a>.*,\2cygwinports;\3;\1;\1,p' | sed 's,\s*,,g'
+		
+		) >"$DB_ROOT/mirrors.lst"
 	fi
 }
 
@@ -121,7 +124,7 @@ set_new_mirror()
 		for i in $all_areas; do
 			area_name=`echo $i | sed 's,^.*~,,g;s,#, ,g'`
 			area_num=`echo $i | sed 's,~.*$,,g'`
-			url=`grep "$area_name" $DB_ROOT/mirrors.lst | gawk 'BEGIN { FS=";"; i=1} { if(cur==sprintf("%d%d",mn,i) || cur==mn && i==1) print $1; i++; }' mn=$area_num cur=$1`
+			url=`grep "$area_name" $DB_ROOT/mirrors.lst | gawk 'BEGIN { FS=";"; i=1} { if(cur==sprintf("%d%d",mn,i) || cur==mn && i==1) print $1; i++; }' mn="$area_num" cur="$1"`
 			if test -n "$url"; then 
 				mirror_url=$url
 			fi
@@ -137,7 +140,7 @@ list_all_mirrors()
 		area_name=`echo $i | sed 's,^.*~,,g;s,#, ,g'`
 		area_num=`echo $i | sed 's,~.*$,,g'`
 		echo $area_name
-		grep "$area_name" $DB_ROOT/mirrors.lst | gawk 'BEGIN { FS=";"; i=1} { if ($4 == old) c=""; else c=$4; if(cur==sprintf("%d%d",mn,i) || cur==mn && i==1) sel=" >"; else sel="  "; printf("%s%1d%-2d  %-14s %s\n",sel,mn,i++,c,$1); old=$4;}' mn=$area_num cur=$mirror
+		grep "$area_name" $DB_ROOT/mirrors.lst | gawk 'BEGIN { FS=";"; i=1} { if ($4 == old) c=""; else c=$4; if(cur==sprintf("%d%d",mn,i) || cur==mn && i==1) sel=" >"; else sel="  "; printf("%s%1d%-2d  %-14s %s\n",sel,mn,i++,c,$1); old=$4;}' mn="$area_num" cur="$mirror"
 		echo 
 	done
 }
