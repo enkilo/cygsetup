@@ -49,7 +49,7 @@ get_arch()
 {
   case `uname -m` in
     i[3-6]86) arch=x86 ;;
-    *64) arch=x86_x64 ;;
+    *64) arch=x86_64 ;;
   esac
 }
 
