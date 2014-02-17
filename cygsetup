@@ -33,6 +33,7 @@
 DB_ROOT="$ROOT/etc/setup"
 DB="$DB_ROOT/installed.db"
 CONF="$DB_ROOT/cygsetup.conf"
+TAR="tar -U"
 
 #
 # default settings 
@@ -413,9 +414,9 @@ $show "install_packages \""$1"\" \""$2"\""
 					$run eval "(cd $tmp_dir_name; rm "$file_name.*" 2>/dev/null; wget -nd -c $abspath)"
 				fi
 				if test "$2" = "source"; then 
-					$run eval "tar -C $myroot -xvf $tmp_dir_name/$file_name"
+					$run eval "$TAR -C $myroot -xvf $tmp_dir_name/$file_name 2>/dev/null"
 				else
-					$run eval "tar -C $myroot -xvf $tmp_dir_name/$file_name | tee $DB_ROOT/$name.lst"
+					$run eval "$TAR -C $myroot -xvf $tmp_dir_name/$file_name 2>/dev/null | tee $DB_ROOT/$name.lst"
 					$run eval "gzip -f $DB_ROOT/$name.lst"
 					add_package_to_cygwin_db $name $file_name
 					run_postinstall_script $name 
@@ -424,9 +425,9 @@ $show "install_packages \""$1"\" \""$2"\""
 			file:*)
 				url=`echo $mirror_url | sed 's,^file:,,g'`
 				if test "$2" = "source"; then 
-					$run eval "tar -C $myroot -xvf $url/$relpath"
+					$run eval "$TAR -C $myroot -xvf $url/$relpath 2>/dev/null"
 				else
-					$run eval "tar -C $myroot -xvf $url/$relpath | tee $DB_ROOT/$name.lst"
+					$run eval "$TAR -C $myroot -xvf $url/$relpath 2>/dev/null | tee $DB_ROOT/$name.lst"
 					$run eval "gzip -f $DB_ROOT/$name.lst"
 					add_package_to_cygwin_db $name $file_name
 					run_postinstall_script $name 
