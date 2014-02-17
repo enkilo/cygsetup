@@ -61,9 +61,9 @@ config_write()
 	echo "CONF=$CONF" >>$CONF
 	echo "arch=$arch" >>$CONF
 	echo "area=\"$area\"" >>$CONF
-	echo "default_mirror=$default_mirror" >>$CONF
-	echo "mirror=$mirror" >>$CONF
-	echo "mirror_url=$mirror_url" >>$CONF
+	echo "default_mirror=\"$default_mirror\"" >>$CONF
+	echo "mirror=\"$mirror\"" >>$CONF
+	echo "mirror_url=\"$mirror_url\"" >>$CONF
 	echo "setup_ini=$DB_ROOT/setup.ini" >>$CONF
 	echo "setup_ini_loaded=$setup_ini_loaded" >>$CONF
 }
