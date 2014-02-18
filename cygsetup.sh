@@ -36,6 +36,8 @@ DB="$DB_ROOT/installed.db"
 CONF="$DB_ROOT/cygsetup.conf"
 TAR="tar -U"
 
+basename() { echo "${1##*/}"; }
+
 #
 # default settings 
 # 
@@ -164,6 +166,7 @@ list_all_mirrors()
 
 load_setup_ini()
 {
+mkdir -p "$DB_ROOT/"
 rm -f "$DB_ROOT/setup.ini"
 for url in $mirror_url; do
 	echo $url 1>&2
@@ -432,7 +435,7 @@ $show "install_packages \""$1"\" \""$2"\""
 		 *://*) abspath="$relpath" ;;
 		 *) abspath="$mirror_url/$relpath" ;;
 		 esac
-		file_name=`basename $relpath` 
+		file_name=${relpath##*/}
 		tmp_dir_name=/tmp/`dirname $relpath` 
 		mkdir -p $tmp_dir_name
 
@@ -626,6 +629,7 @@ fi
 
 while :; do
   case $mode in
+    --root=*) ROOT=${mode#*=} ;;
   	--mirror)
   		get_mirror_list
   		build_area_list
