@@ -50,10 +50,7 @@ mirror_url=
 
 get_arch()
 {
-  case `uname -m` in
-    i[3-6]86) arch=x86 ;;
-    *64) arch=x86_64 ;;
-  esac
+  test -z "$arch" && arch=`get_arch_suffix`
 }
 
 config_write()
@@ -61,7 +58,7 @@ config_write()
 	echo "ROOT=$root" >$CONF
 	echo "DB_ROOT=$DB_ROOT" >>$CONF
 	echo "CONF=$CONF" >>$CONF
-	echo "arch=$arch" >>$CONF
+	echo ": \${arch=$arch}" >>$CONF
 	echo "area=\"$area\"" >>$CONF
 	echo "default_mirror=\"$default_mirror\"" >>$CONF
 	echo "mirror=\"$mirror\"" >>$CONF
@@ -100,7 +97,14 @@ config_read()
 }
 get_arch_suffix()
 {
-   case "${MACHINE=`uname -m`}" in
+   if [ -z "$1" -a -n "$arch" ]; then
+     echo "$arch"
+     return 0
+   fi
+
+   [ -n "$1" ] && MACHINE="$1" || MACHINE=`uname -m`
+   echo MACHINE="$MACHINE" 1>&2
+   case "${MACHINE}" in
      i[3-6]86) echo x86 ;;
      x86?64 |amd64 |x64) echo x86_64 ;;
    esac
@@ -597,17 +601,18 @@ if test $# -eq "0"; then
 	print_help
 fi 
 
-
 while :; do
-  case "$1" in
+  case $1 in
+    --root=*) ROOT=${1#*=} ; shift ;;
+    --arch=*) echo "Setting arch to ${1#*=}" 1>&2 ; arch=`get_arch_suffix ${1#*=}` ;  shift ;;
     --mirror=*) set_mirror="${set_mirror:+$set_mirror }${1#*=}"; shift ;;
     *) break ;;
   esac
-done
-
-
+  done
 
 mode=$1; shift
+
+
 if test $# -gt "0"; then 
 	option=$1; shift
 fi
@@ -629,7 +634,6 @@ fi
 
 while :; do
   case $mode in
-    --root=*) ROOT=${mode#*=} ;;
   	--mirror)
   		get_mirror_list
   		build_area_list
