@@ -59,6 +59,7 @@ config_write()
 	echo "DB_ROOT=$DB_ROOT" >>$CONF
 	echo "CONF=$CONF" >>$CONF
 	echo ": \${arch=$arch}" >>$CONF
+	echo ": \${dldir=$dldir}" >>$CONF
 	echo "area=\"$area\"" >>$CONF
 	echo "default_mirror=\"$default_mirror\"" >>$CONF
 	echo "mirror=\"$mirror\"" >>$CONF
@@ -73,6 +74,7 @@ config_print()
 	echo "DB_ROOT=$DB_ROOT" 
 	echo "CONF=$CONF"
 	echo "arch=$arch"
+	echo "dldir=${dldir:-/tmp/`basename "$0" .sh`}"
 	echo "area=\"$area\""
 	echo "default_mirror='$default_mirror'"
 	echo "mirror='$mirror'"
@@ -441,10 +443,10 @@ $show "install_packages \""$1"\" \""$2"\""
 		 esac
 		file_name=${relpath##*/}
 		reldir=`dirname $relpath` 
-		for m in $mirror_url; do
-		  reldir=${reldir#$m/}
+		for m in $mirror_url; do	  
+		  reldir=${reldir#`dirname "$m"`/}
 		done		
-		tmp_dir_name=/tmp/`basename "$0" .sh`/$reldir
+		tmp_dir_name=${dldir:-/tmp/`basename "$0" .sh`}/$reldir
 		echo tmp_dir_name="$tmp_dir_name" 1>&2
 		
 		mkdir -p $tmp_dir_name
