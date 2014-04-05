@@ -36,7 +36,7 @@ DB="$DB_ROOT/installed.db"
 CONF="$DB_ROOT/cygsetup.conf"
 TAR="tar -U"
 
-basename() { echo "${1##*/}"; }
+basename() { set "${@##*/}"; echo "${1%$2}"; }
 
 #
 # default settings 
@@ -440,7 +440,13 @@ $show "install_packages \""$1"\" \""$2"\""
 		 *) abspath="$mirror_url/$relpath" ;;
 		 esac
 		file_name=${relpath##*/}
-		tmp_dir_name=/tmp/`dirname $relpath` 
+		reldir=`dirname $relpath` 
+		for m in $mirror_url; do
+		  reldir=${reldir#$m/}
+		done		
+		tmp_dir_name=/tmp/`basename "$0" .sh`/$reldir
+		echo tmp_dir_name="$tmp_dir_name" 1>&2
+		
 		mkdir -p $tmp_dir_name
 
 		if test "$2" = "source"; then 
@@ -595,6 +601,9 @@ print_help()
 	echo "   [-e | --erase] <pkg>     - remove package <pkg>"
 	exit 1
 }
+
+case "${0##*/}" in
+  *cygsetup*)
 
 verbose="1"
 if test $# -eq "0"; then 
@@ -826,3 +835,5 @@ while :; do
   
   break
 done
+;;
+esac
