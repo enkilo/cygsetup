@@ -436,7 +436,7 @@ $show "install_packages \""$1"\" \""$2"\""
 		 *) abspath="$mirror_url/$relpath" ;;
 		 esac
 		file_name=${relpath##*/}
-		tmp_dir_name=/tmp/`dirname $relpath` 
+		tmp_dir_name=`echo "$relpath" | sed "s|.*/\($(get_arch_suffix)\)|/tmp/cygsetup/\1|"`
 		mkdir -p $tmp_dir_name
 
 		if test "$2" = "source"; then 
@@ -449,7 +449,7 @@ $show "install_packages \""$1"\" \""$2"\""
 			http:* | ftp:*)
 				# if file is available check integrity 
 				if ! test -f "$tmp_dir_name/$file_name" || test -n "`bzip2 -t $tmp_dir_name/$file_name 2>&1`"; then 
-					$run eval "(cd $tmp_dir_name; rm "$file_name.*" 2>/dev/null; wget -nd -c $abspath)"
+					$run eval "(set -x; cd $tmp_dir_name; rm "$file_name.*" 2>/dev/null; wget -nd -c $abspath)"
 				fi
 				if test "$2" = "source"; then 
 					$run eval "$TAR -C $myroot -xvf $tmp_dir_name/$file_name 2>/dev/null"
