@@ -443,7 +443,7 @@ $show "install_packages \""$1"\" \""$2"\""
      *) abspath="${mirror_url%/}/$relpath" ;;
      esac
     file_name=${relpath##*/}
-    tmp_file_name=`echo "$relpath" | sed "s|.*/\($(get_arch_suffix)\)|/tmp/cygsetup/\1|"`
+    tmp_file_name=`echo "$relpath" | sed "s|.*/\([^/]\+\)/\+\([^/]\+\)/\+release/|/tmp/cygsetup/\1/\2/release/|"`
     tmp_dir_name=`dirname "$tmp_file_name"`
     
 #    reldir=`dirname $relpath` 
