@@ -439,7 +439,7 @@ $show "install_packages \""$1"\" \""$2"\""
     
     case "$relpath" in
      *://*) abspath="$relpath" ;;
-     *) abspath="$mirror_url/$relpath" ;;
+     *) abspath="${mirror_url%/}/$relpath" ;;
      esac
     file_name=${relpath##*/}
     tmp_file_name=`echo "$relpath" | sed "s|.*/\($(get_arch_suffix)\)|/tmp/cygsetup/\1|"`
@@ -464,7 +464,12 @@ $show "install_packages \""$1"\" \""$2"\""
       http:* | ftp:*)
         # if file is available check integrity 
         if ! test -f "$tmp_dir_name/$file_name" || test -n "`bzip2 -t $tmp_dir_name/$file_name 2>&1`"; then 
-          $run eval "(rm -f "$tmp_file_name" 2>/dev/null; wget -c -P "$tmp_dir_name" "$abspath")"
+          $run eval "(rm -rf "$tmp_file_name" 2>/dev/null
+          set -x
+          #wget -c -O "$tmp_file_name" "$abspath"
+          wget -c -P "$tmp_dir_name" "$abspath"
+          
+         )"
         fi
         if [ "$DOWNLOAD_ONLY" = true ]; then
           return 0
