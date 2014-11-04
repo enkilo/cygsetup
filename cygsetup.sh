@@ -35,6 +35,7 @@ DB_ROOT="$ROOT/etc/setup"
 DB="$DB_ROOT/installed.db"
 CONF="$DB_ROOT/cygsetup.conf"
 TAR="tar -U"
+WGET="wget --no-config --content-disposition --follow-ftp --user-agent=cygsetup"
 
 basename() { set "${@##*/}"; echo "${1%$2}"; }
 
@@ -117,8 +118,8 @@ get_arch_suffix()
 get_mirror_list()
 {
   if ! test -f "$DB_ROOT/mirrors.lst"; then 
-    (wget -O - http://www.cygwin.com/mirrors.lst
-    wget -O - http://sourceware.org/mirrors.html  |sed -n 's,.*>\([^< \t:]\+\)[: \t]*<a href="\([^"]*\)/*\">\([^<]*\)</a>.*,\2/cygwinports;\3;\1;\1,p' | sed '/rsync:/d; s,\s*,,g'
+    ($WGET -O - http://www.cygwin.com/mirrors.lst
+    $WGET -O - http://sourceware.org/mirrors.html  |sed -n 's,.*>\([^< \t:]\+\)[: \t]*<a href="\([^"]*\)/*\">\([^<]*\)</a>.*,\2/cygwinports;\3;\1;\1,p' | sed '/rsync:/d; s,\s*,,g'
     
     ) >"$DB_ROOT/mirrors.lst"
   fi
@@ -180,7 +181,7 @@ for url in $mirror_url; do
   case $url in
     http:* | ftp:*)
 #<<<<<<< HEAD
-    cmd="(cd \"\$DB_ROOT\"; URL=\"$url/$(get_arch_suffix)\"; wget -O - \"\$URL/setup.bz2\" | bzip2 -d -c - | sed \"\\\\|/| s|^\\\\([a-z]*\\\\):\\\\s\\\\+|\\\\1: \${URL%/$(get_arch_suffix)}/|\")  || exit 1"
+    cmd="(cd \"\$DB_ROOT\"; URL=\"$url/$(get_arch_suffix)\"; $WGET -O - \"\$URL/setup.bz2\" | bzip2 -d -c - | sed \"\\\\|/| s|^\\\\([a-z]*\\\\):\\\\s\\\\+|\\\\1: \${URL%/$(get_arch_suffix)}/|\")  || exit 1"
       $show eval "$cmd"
       $run eval "$cmd"
 #      $show eval "(cd \"\$DB_ROOT\"; bzip2 -d -c -  >>setup.ini)"
@@ -198,8 +199,8 @@ for url in $mirror_url; do
       $show "(bzip2 -d -c $url/setup.bz2)  || exit 1"
       $run eval "(bzip2 -d -c $url/setup.bz2)  || exit 1"
 #=======
-#      $show eval "(cd $DB_ROOT; wget -nd -O setup.bz2 $mirror_url/$arch/setup.bz2) || exit 1"
-#      $run eval "(cd $DB_ROOT; wget -nd -O setup.bz2 $mirror_url/$arch/setup.bz2) || exit 1"
+#      $show eval "(cd $DB_ROOT; $WGET -nd -O setup.bz2 $mirror_url/$arch/setup.bz2) || exit 1"
+#      $run eval "(cd $DB_ROOT; $WGET -nd -O setup.bz2 $mirror_url/$arch/setup.bz2) || exit 1"
 #      $show eval "(cd $DB_ROOT; bzip2 -d -c setup.bz2  >setup.ini)"
 #      $run eval "(cd $DB_ROOT; bzip2 -d -c setup.bz2  >setup.ini)"
 #      setup_ini_loaded=1
@@ -466,8 +467,8 @@ $show "install_packages \""$1"\" \""$2"\""
         if ! test -f "$tmp_dir_name/$file_name" || test -n "`bzip2 -t $tmp_dir_name/$file_name 2>&1`"; then 
           $run eval "(rm -rf "$tmp_file_name" 2>/dev/null
           set -x
-          #wget -c -O "$tmp_file_name" "$abspath"
-          wget -c -P "$tmp_dir_name" "$abspath"
+          #$WGET -c -O "$tmp_file_name" "$abspath"
+          $WGET -c -P "$tmp_dir_name" "$abspath"
           
          )"
         fi
