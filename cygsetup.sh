@@ -464,6 +464,9 @@ $show "install_packages \""$1"\" \""$2"\""
 				if ! test -f "$tmp_dir_name/$file_name" || test -n "`bzip2 -t $tmp_dir_name/$file_name 2>&1`"; then 
 					$run eval "(set -x; cd $tmp_dir_name; rm "$file_name.*" 2>/dev/null; wget -nd -c $abspath)"
 				fi
+				if [ "$DOWNLOAD_ONLY" = true ]; then
+				  return 0
+				fi
 				if test "$2" = "source"; then 
 					$run eval "$TAR -C $myroot -xvf $tmp_dir_name/$file_name 2>/dev/null"
 				else
@@ -615,6 +618,7 @@ fi
 
 while :; do
   case $1 in
+    --download*) DOWNLOAD_ONLY="true"; shift ;; 
     --root=*) ROOT=${1#*=} ; shift ;;
     --arch=*) echo "Setting arch to ${1#*=}" 1>&2 ; arch=`get_arch_suffix ${1#*=}` ;  shift ;;
     --mirror=*) set_mirror="${set_mirror:+$set_mirror }${1#*=}"; shift ;;
@@ -646,6 +650,14 @@ fi
 
 while :; do
   case $mode in
+    --download)
+      DOWNLOAD_ONLY=true
+      set -- $params
+      mode=$1
+      shift
+      params=$*
+      continue
+     ;;
   	--mirror)
   		get_mirror_list
   		build_area_list
@@ -773,7 +785,7 @@ while :; do
   	    ;;	
   
   	# download source 
-  	-ds)
+  	-ds | --source)
   			pkgname=""
   			for i in `echo $option $params`; do 
   				get_source_url_path "$i"
