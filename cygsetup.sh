@@ -36,7 +36,7 @@ DB="$DB_ROOT/installed.db"
 CONF="$DB_ROOT/cygsetup.conf"
 TAR="tar -U"
 
-type wget 2>/dev/null >/dev/null && WGET="wget --no-config --content-disposition --follow-ftp --user-agent=cygsetup"
+type wget 2>/dev/null >/dev/null && WGET="wget --no-config --content-disposition --follow-ftp --user-agent=cygsetup --progress=bar:force:noscroll"
 type curl 2>/dev/null >/dev/null && CURL="curl -q -k -L -#"
 type lynx 2>/dev/null >/dev/null && LYNX="lynx -accept_all_cookies -force_secure"
 
@@ -45,7 +45,7 @@ basename() { set "${@##*/}"; echo "${1%$2}"; }
 mktempfile() { 
  (prefix=${0##*/};
   path=${1-${TMPDIR-"/tmp"}}
-  tempfile=${path}/${prefix#-}.${RANDOM}
+  tempfile=${path}/${prefix#-}.${2:-$RANDOM}
   rm -f "$tempfile"
   echo -n > "$tempfile"
   echo "$tempfile")
@@ -61,7 +61,7 @@ test_package_file() {
     lzma) DECOMPRESS="lzma -d -f -c" ;;
     *) echo "No such compression format: $EXT" 1>&2; exit 1 ;;
   esac
-  R=$(eval "$DECOMPRESS <\"\$1\" | (tar -t >/dev/null; echo \$?)")
+  R=$(eval "$DECOMPRESS <\"\$1\" | (tar -t >/dev/null; echo \$?)" 2>/dev/null)
   exit $R)
 }
 
@@ -92,16 +92,17 @@ http_dl() {
   OUTPUT=$2
   CMD=
   if [ "$OUTPUT" ]; then
-    TMP=`mktempfile /tmp`
+    HASH=`echo "${OUTPUT#*/cygwin*/}" | sha1sum`
+    TMP=`mktempfile /tmp "${HASH:1:8}"`
     rm -f "$OUTPUT"
   else
     TMP=
   fi
-  for P in CURL WGET LYNX; do
+  for P in  WGET CURL LYNX; do
     eval V=\$$P 
     [ "$V" ] || continue 
     case "$P" in
-      WGET) CMD="\$WGET -O \"\${OUTPUT:--}\" -c \"$URL\"" ;;
+      WGET) CMD="\$WGET -O \${OUTPUT:--} -c \"$URL\"" ;;
       CURL) CMD="\$CURL ${OUTPUT:+-o \"\$OUTPUT\" }\"$URL\"" ;;
       LYNX) CMD="\$LYNX -source${OUTPUT:+ >\"\$OUTPUT\"} \"$URL\"" ;;
     esac
@@ -110,14 +111,16 @@ http_dl() {
   
   IFS="$IFS "  
   
-  $run echo "+ $CMD" 1>&2  
-  $run eval "(OUTPUT=\$TMP; $CMD); R=$?"
+  [ "$TMP" ] && echo "Temp file: $TMP" 1>&2
+  
+  $run echo "+ ${CMD//\$OUTPUT/$OUTPUT}" 1>&2  
+  $run eval "(OUTPUT=$TMP; $CMD); R=$?"
   
   if [ -n "$TMP" ]; then
     if [ "$R" -eq 0 ]; then
       mv -f "$TMP" "$OUTPUT"
     else
-      rm -f "$TMP"
+:      rm -f "$TMP"
     fi
   fi
   )
@@ -559,7 +562,7 @@ $show "install_packages \""$1"\" \""$2"\""
     case $mirror_url in
       http:* | ftp:*)
         # if file is available check integrity 
-        echo "Package file:" $tmp_file_name 1>&2
+        #echo "Package file:" $tmp_file_name 1>&2
         if test ! -f "$tmp_dir_name/$file_name" || ! test_package_file "$tmp_file_name"; then
           $run eval "(rm -rf "$tmp_file_name" 2>/dev/null
           
