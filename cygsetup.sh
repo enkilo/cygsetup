@@ -35,9 +35,46 @@ DB_ROOT="$ROOT/etc/setup"
 DB="$DB_ROOT/installed.db"
 CONF="$DB_ROOT/cygsetup.conf"
 TAR="tar -U"
-WGET="wget --no-config --content-disposition --follow-ftp --user-agent=cygsetup"
+
+type wget 2>/dev/null >/dev/null && WGET="wget --no-config --content-disposition --follow-ftp --user-agent=cygsetup"
+type curl 2>/dev/null >/dev/null && CURL="curl -q -k -L -#"
+type lynx 2>/dev/null >/dev/null && LYNX="lynx -accept_all_cookies -force_secure"
 
 basename() { set "${@##*/}"; echo "${1%$2}"; }
+
+mktempfile() { 
+ (prefix=${0##*/};
+  path=${1-${TMPDIR-"/tmp"}}
+  tempfile=${path}/${prefix#-}.${RANDOM}
+  rm -f "$tempfile"
+  echo -n > "$tempfile"
+  echo "$tempfile")
+}
+
+
+test_package_file() {
+ (EXT=${1##*.}
+  case "$EXT" in
+    xz | txz) DECOMPRESS="xz -d -f -c" ;;
+    bz2 | tbz | tbz2) DECOMPRESS="bzip2 -d -f -c" ;;
+    gz | tgz) DECOMPRESS="gzip -d -f -c" ;;
+    lzma) DECOMPRESS="lzma -d -f -c" ;;
+    *) echo "No such compression format: $EXT" 1>&2; exit 1 ;;
+  esac
+  R=$(eval "$DECOMPRESS <\"\$1\" | (tar -t >/dev/null; echo \$?)")
+  exit $R)
+}
+
+get_tar_flags() {
+ (EXT=${1##*.}
+  case "$EXT" in
+    xz | txz) echo "-J" ;;
+    bz2 | tbz | tbz2) echo "-j" ;;
+    gz | tgz) echo "-z" ;;
+    lzma) echo "--use-compress-program=lzma" ;;
+    *) echo "No such compression format: $EXT" 1>&2; exit 1 ;;
+  esac)
+}
 
 #
 # default settings 
@@ -48,6 +85,43 @@ area="Europe"
 default_mirror="file:/d" 
 mirror=1
 mirror_url=
+
+# http_dl <url> [output-file]
+http_dl() {
+ (URL=$1
+  OUTPUT=$2
+  CMD=
+  if [ "$OUTPUT" ]; then
+    TMP=`mktempfile /tmp`
+    rm -f "$OUTPUT"
+  else
+    TMP=
+  fi
+  for P in CURL WGET LYNX; do
+    eval V=\$$P 
+    [ "$V" ] || continue 
+    case "$P" in
+      WGET) CMD="\$WGET -O \"\${OUTPUT:--}\" -c \"$URL\"" ;;
+      CURL) CMD="\$CURL ${OUTPUT:+-o \"\$OUTPUT\" }\"$URL\"" ;;
+      LYNX) CMD="\$LYNX -source${OUTPUT:+ >\"\$OUTPUT\"} \"$URL\"" ;;
+    esac
+    break
+  done
+  
+  IFS="$IFS "  
+  
+  $run echo "+ $CMD" 1>&2  
+  $run eval "(OUTPUT=\$TMP; $CMD); R=$?"
+  
+  if [ -n "$TMP" ]; then
+    if [ "$R" -eq 0 ]; then
+      mv -f "$TMP" "$OUTPUT"
+    else
+      rm -f "$TMP"
+    fi
+  fi
+  )
+}
 
 get_arch()
 {
@@ -118,8 +192,8 @@ get_arch_suffix()
 get_mirror_list()
 {
   if ! test -f "$DB_ROOT/mirrors.lst"; then 
-    ($WGET -O - http://www.cygwin.com/mirrors.lst
-    $WGET -O - http://sourceware.org/mirrors.html  |sed -n 's,.*>\([^< \t:]\+\)[: \t]*<a href="\([^"]*\)/*\">\([^<]*\)</a>.*,\2/cygwinports;\3;\1;\1,p' | sed '/rsync:/d; s,\s*,,g'
+    (http_dl "http://www.cygwin.com/mirrors.lst"
+    http_dl "http://sourceware.org/mirrors.html"  |sed -n 's,.*>\([^< \t:]\+\)[: \t]*<a href="\([^"]*\)/*\">\([^<]*\)</a>.*,\2/cygwinports;\3;\1;\1,p' | sed '/rsync:/d; s,\s*,,g'
     
     ) >"$DB_ROOT/mirrors.lst"
   fi
@@ -145,12 +219,12 @@ set_new_mirror()
 {
   mirror=$*
   if ! test `echo $* | grep "^[0-9]" 2>/dev/null`; then 
-    mirror_url=$*
+    mirror_url=${*%/}
   else 
     for i in $all_areas; do
       area_name=`echo $i | sed 's,^.*~,,g;s,#, ,g'`
       area_num=`echo $i | sed 's,~.*$,,g'`
-      url=`grep "$area_name" $DB_ROOT/mirrors.lst | gawk 'BEGIN { FS=";"; i=1} { if(cur==sprintf("%d%d",mn,i) || cur==mn && i==1) print $1; i++; }' mn="$area_num" cur="$1"`
+      url=`grep "$area_name" $DB_ROOT/mirrors.lst | gawk 'BEGIN { FS=";"; i=1} { if(cur==sprintf("%d%d",mn,i) || cur==mn && i==1) print $1; i++; }' mn="$area_num" cur="$1" | sed 's,/*$,,'`
       if test -n "$url"; then 
         mirror_url=$url
       fi
@@ -181,7 +255,7 @@ for url in $mirror_url; do
   case $url in
     http:* | ftp:*)
 #<<<<<<< HEAD
-    cmd="(cd \"\$DB_ROOT\"; URL=\"$url/$(get_arch_suffix)\"; $WGET -O - \"\$URL/setup.bz2\" | bzip2 -d -c - | sed \"\\\\|/| s|^\\\\([a-z]*\\\\):\\\\s\\\\+|\\\\1: \${URL%/$(get_arch_suffix)}/|\")  || exit 1"
+    cmd="(cd \"\$DB_ROOT\"; URL=\"$url/$(get_arch_suffix)\"; http_dl \"\$URL/setup.bz2\" | bzip2 -d -c - | sed \"\\\\|/| s|^\\\\([a-z]*\\\\):\\\\s\\\\+|\\\\1: \${URL%/$(get_arch_suffix)}/|\")  || exit 1"
       $show eval "$cmd"
       $run eval "$cmd"
 #      $show eval "(cd \"\$DB_ROOT\"; bzip2 -d -c -  >>setup.ini)"
@@ -199,8 +273,8 @@ for url in $mirror_url; do
       $show "(bzip2 -d -c $url/setup.bz2)  || exit 1"
       $run eval "(bzip2 -d -c $url/setup.bz2)  || exit 1"
 #=======
-#      $show eval "(cd $DB_ROOT; $WGET -nd -O setup.bz2 $mirror_url/$arch/setup.bz2) || exit 1"
-#      $run eval "(cd $DB_ROOT; $WGET -nd -O setup.bz2 $mirror_url/$arch/setup.bz2) || exit 1"
+#      $show eval "(cd $DB_ROOT; http_dl \"$mirror_url/$arch/setup.bz2\" setup.bz2) || exit 1"
+#      $run eval "(cd $DB_ROOT; http_dl \"$mirror_url/$arch/setup.bz2\" setup.bz2) || exit 1"
 #      $show eval "(cd $DB_ROOT; bzip2 -d -c setup.bz2  >setup.ini)"
 #      $run eval "(cd $DB_ROOT; bzip2 -d -c setup.bz2  >setup.ini)"
 #      setup_ini_loaded=1
@@ -221,6 +295,26 @@ for url in $mirror_url; do
   esac 
 done >"$DB_ROOT/setup.ini"
   config_write
+}
+
+get_package_info() {
+	sed -n  <"$DB_ROOT/setup.ini"  "/^@ ${1}\$/ {
+	:lp
+	/: \"[^\"\n]*\$/ { N; s|\n\([^\n]*\)\$|\\\\n\\1|; b lp; }	
+	N
+	/\\n\$/! { b lp; }
+	p
+	}"
+}
+
+get_all_package_info() {
+	sed -n  <"$DB_ROOT/setup.ini"  "/^@ / {
+	:lp
+	N
+	/\\n\$/! { b lp; }
+	s/\\n/|/g
+	p
+	}"
 }
 
 list_all_packages()
@@ -400,7 +494,8 @@ get_install_url_path()
       ret="$ret $i#$FILE"
     fi
   done
-  echo "get_install_url_path=$ret"
+  set -- ${ret%%'#'*}
+  echo "$@" #get_install_url_path=$ret"
 }
 
 #
@@ -464,32 +559,51 @@ $show "install_packages \""$1"\" \""$2"\""
     case $mirror_url in
       http:* | ftp:*)
         # if file is available check integrity 
-        if ! test -f "$tmp_dir_name/$file_name" || test -n "`bzip2 -t $tmp_dir_name/$file_name 2>&1`"; then 
+        echo "Package file:" $tmp_file_name 1>&2
+        if test ! -f "$tmp_dir_name/$file_name" || ! test_package_file "$tmp_file_name"; then
           $run eval "(rm -rf "$tmp_file_name" 2>/dev/null
-          set -x
+          
           #$WGET -c -O "$tmp_file_name" "$abspath"
-          $WGET -c -P "$tmp_dir_name" "$abspath"
+          http_dl "$abspath" "$tmp_file_name"
           
          )"
         fi
         if [ "$DOWNLOAD_ONLY" = true ]; then
           return 0
         fi
+        TAR_FLAGS=`get_tar_flags "$tmp_file_name"`
+        TAR_LOG=`mktempfile /tmp`
         if test "$2" = "source"; then 
-          $run eval "$TAR -C $myroot -xvf $tmp_dir_name/$file_name 2>/dev/null"
+          $run echo "\$TAR${TAR_FLAGS:+ $TAR_FLAGS} --hard-dereference -h -U -C $myroot -x -f $tmp_dir_name/$file_name"
+          $run eval "\$TAR${TAR_FLAGS:+ $TAR_FLAGS} --hard-dereference -h -U -C $myroot -x -f $tmp_dir_name/$file_name 2>\"\$TAR_LOG\""
         else
-          $run eval "$TAR -C $myroot -xvf $tmp_dir_name/$file_name 2>/dev/null | tee $DB_ROOT/$name.lst"
+          $run echo "\$TAR${TAR_FLAGS:+ $TAR_FLAGS} --hard-dereference -h -U -C $myroot -x -v -f $tmp_dir_name/$file_name 2>\"\$TAR_LOG\" >\"$DB_ROOT/$name.lst\""
+          $run eval "\$TAR${TAR_FLAGS:+ $TAR_FLAGS} --hard-dereference -h -U -C $myroot -x -v -f $tmp_dir_name/$file_name 2>\"\$TAR_LOG\" >\"$DB_ROOT/$name.lst\""
           $run eval "gzip -f $DB_ROOT/$name.lst"
           add_package_to_cygwin_db $name $file_name
           run_postinstall_script $name 
         fi
+        (while read -r LINE; do
+           case "$LINE" in
+             *"Cannot hard link to"*)
+               LINK=${LINE#"tar: "}
+               LINK=${LINK%%": "*}
+               TARGET=${LINE##*"annot hard link to '"}
+               TARGET=${TARGET%%"': "*}
+               rm -f /"$LINK"
+               mkdir -p "$(dirname "/$LINK")"
+               ln -svf "/$TARGET" /"$LINK"
+#               echo "Hard link: $LINK $TARGET" 1>&2
+             ;;
+           esac
+         done <"$TAR_LOG")
         ;;
       file:*)
         url=`echo $mirror_url | sed 's,^file:,,g'`
         if test "$2" = "source"; then 
-          $run eval "$TAR -C $myroot -xvf $url/$relpath 2>/dev/null"
+          $run eval "$TAR --hard-dereference -h -U -C $myroot -xvf $url/$relpath 2>/dev/null"
         else
-          $run eval "$TAR -C $myroot -xvf $url/$relpath 2>/dev/null | tee $DB_ROOT/$name.lst"
+          $run eval "$TAR --hard-dereference -h -U -C $myroot -xvf $url/$relpath 2>/dev/null | tee $DB_ROOT/$name.lst"
           $run eval "gzip -f $DB_ROOT/$name.lst"
           add_package_to_cygwin_db $name $file_name
           run_postinstall_script $name 
@@ -628,9 +742,23 @@ process_args() {
   while :; do
     #echo "Processing arg: $1" 1>&2
     case $1 in
-    -q|--query|-l|--list|-f|--files|-d|--deps|-c|--check|-l|--list|-r|--reinstall|-ds|--source|-u|--upgrade|-i|--install|-e|--erase|-h|--help)
+    -q|--query|-l|--list|-f|--files|-d|--deps|-c|--check|-l|--list|-r|--reinstall|-ds|--source|-u|--upgrade|-i|--install|-e|--erase|-h|--help|--show|--info)
       mode="$1"; shift ;;
-      --download*) mode="-i" DOWNLOAD_ONLY="true"; shift ;; 
+      --match)
+         what="${2%%[!A-Za-z]*}"
+         expr="${2#*[!A-Za-z]}"
+         comp=${2%%"$expr"}
+         comp=${comp#$what}
+         case "$comp" in
+           "!=" | "!") GREP_ARGS="-v" ;;
+           *) GREP_ARGS="" ;;
+         esac
+         shift 2
+         pkgs=`get_all_package_info | grep -i $GREP_ARGS -E "\|$what[^|]*($expr)" | sed 's,^@ ,, ; s,|.*,,'`
+         echo "Packages:" $pkgs 1>&2
+         set -- "$@" $pkgs
+      ;;
+      --download*) mode="-r" DOWNLOAD_ONLY="true"; shift ;; 
       --root=*) ROOT=${1#*=} ; shift ;;
       --arch=*) echo "Setting arch to ${1#*=}" 1>&2 ; arch=`get_arch_suffix ${1#*=}` ;  shift ;;
       --mirror=*) set_mirror="${set_mirror:+$set_mirror }${1#*=}"; shift ;;
@@ -678,6 +806,24 @@ while :; do
     --set-area*)
       area=$value
       ;;
+    
+    --info | --show)
+    
+    for p in $params; do
+			get_package_info "$p" | sed 's/^@ /Package: /
+/desc:/ {
+	s/sdesc: "\([^"]*\)"/Short Description: \1/
+	s/ldesc: "\([^"]*\)"/Long Description: \1/
+	s/\\n/\n  /g
+}
+s/category: \(.*\)/Category: \1/
+s/requires: \(.*\)/Dependencies: \1/
+s/version: \(.*\)/Version: \1/
+s/install: \(.*\)/Install: \1/
+s/source: \(.*\)/Source: \1/'
+	  done
+    
+    ;;
     
     -q | --query)
         case $option in 
