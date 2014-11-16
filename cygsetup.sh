@@ -730,6 +730,7 @@ print_help()
   echo "   [-r | --reinstall] <pkg> - reinstall package <pkg>"
   echo 
   echo "   [-e | --erase] <pkg>     - remove package <pkg>"
+  echo "   --download-only          - only download packages"
   exit 1
 }
 
