@@ -129,6 +129,7 @@ http_dl() {
 get_arch()
 {
   test -z "$arch" && arch=`get_arch_suffix`
+  echo arch=$arch 1>&2
 }
 
 config_write()
@@ -136,8 +137,8 @@ config_write()
   echo "ROOT=$root" >$CONF
   echo "DB_ROOT=$DB_ROOT" >>$CONF
   echo "CONF=$CONF" >>$CONF
-  echo ": \${arch=$arch}" >>$CONF
-  echo ": \${dldir=$dldir}" >>$CONF
+  echo "arch=$arch" >>$CONF
+  echo "dldir=\"$dldir\"" >>$CONF
   echo "area=\"$area\"" >>$CONF
   echo "default_mirror=\"$default_mirror\"" >>$CONF
   echo "mirror=\"$mirror\"" >>$CONF
@@ -164,6 +165,7 @@ config_print()
 
 config_read()
 {
+  echo "CONF=$CONF" 1>&2
   if ! test -f "$CONF"; then  
     config_write
   else 
@@ -182,8 +184,10 @@ get_arch_suffix()
      return 0
    fi
 
-   [ -n "$1" ] && MACHINE="$1" || MACHINE=`uname -m`
+   [ -n "$1" ] && MACHINE="$1" || MACHINE=`$ROOT/bin/uname -m`
+   
    echo MACHINE="$MACHINE" 1>&2
+   
    case "${MACHINE}" in
      i[3-6]86) echo x86 ;;
      x86?64 |amd64 |x64) echo x86_64 ;;
@@ -487,7 +491,7 @@ check_for_not_installed_packages()
 # 
 get_install_url_path()
 {
-  echo "------- download package path --------"
+  echo "------- download package path --------" 1>&2
   ret=
   for i in `echo $1`; do
     FILE=`gawk '$1 == "@" && $2 == KEY { found=1} $1 == "install:" && found == 1 { print $2; found=0 }' KEY="$i" $DB_ROOT/setup.ini`
@@ -498,7 +502,7 @@ get_install_url_path()
     fi
   done
   set -- ${ret%%'#'*}
-  echo "$@" #get_install_url_path=$ret"
+  echo 1>&2 "$@" #get_install_url_path=$ret" 
 }
 
 #
@@ -559,6 +563,7 @@ $show "install_packages \""$1"\" \""$2"\""
       myroot=$ROOT/
     fi 
     # unpack archive 
+         [ "$LIST_ONLY" = true ] && DL=echo || DL=http_dl
     case $mirror_url in
       http:* | ftp:*)
         # if file is available check integrity 
@@ -567,7 +572,7 @@ $show "install_packages \""$1"\" \""$2"\""
           $run eval "(rm -rf "$tmp_file_name" 2>/dev/null
           
           #$WGET -c -O "$tmp_file_name" "$abspath"
-          http_dl "$abspath" "$tmp_file_name"
+          $DL "$abspath" "$tmp_file_name"
           
          )"
         fi
@@ -747,7 +752,12 @@ process_args() {
     #echo "Processing arg: $1" 1>&2
     case $1 in
     -q|--query|-l|--list|-f|--files|-d|--deps|-c|--check|-l|--list|-r|--reinstall|-ds|--source|-u|--upgrade|-i|--install|-e|--erase|-h|--help|--show|--info)
-      mode="$1"; shift ;;
+      if [ -z "$mode" ]; then
+      mode="$1"
+     else
+       break
+     fi
+     shift ;;
       --match)
          what="${2%%[!A-Za-z]*}"
          expr="${2#*[!A-Za-z]}"
@@ -762,6 +772,7 @@ process_args() {
          echo "Packages:" $pkgs 1>&2
          set -- "$@" $pkgs
       ;;
+      --list-only*) mode="-r" LIST_ONLY="true"; shift ;; 
       --download*) mode="-r" DOWNLOAD_ONLY="true"; shift ;; 
       --root=*) ROOT=${1#*=} ; shift ;;
       --arch=*) echo "Setting arch to ${1#*=}" 1>&2 ; arch=`get_arch_suffix ${1#*=}` ;  shift ;;
@@ -800,6 +811,7 @@ if [ "$set_mirror" ]; then
 fi
 
 while :; do
+      echo "mode=$mode" 1>&2
   case $mode in
     --mirror)
       get_mirror_list
@@ -830,6 +842,7 @@ s/source: \(.*\)/Source: \1/'
     ;;
     
     -q | --query)
+      echo "option=$option" 1>&2
         case $option in 
           # all packages 
           -a |--all)
