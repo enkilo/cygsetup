@@ -565,7 +565,7 @@ $show "install_packages \""$1"\" \""$2"\""
     outpath=${outpath//":"/"%3a"}
     outpath=${outpath//"/"/"%2f"}
     
-    tmp_file_name=$TMPDIR/cygsetup/$outpath/$trailpath
+    tmp_file_name=$TMPDIR/$outpath/$trailpath
 #    tmp_file_name=`echo "$relpath" | sed "s|.*/\([^/]\+\)/\+\([^/]\+\)/\+release/|$TMPDIR/cygsetup/\1/\2/release/|"`
     tmp_dir_name=`dirname "$tmp_file_name"`
     
@@ -596,10 +596,10 @@ $show "install_packages \""$1"\" \""$2"\""
         TAR_FLAGS=`get_tar_flags "$tmp_file_name"`
         TAR_LOG=`mktempfile $TMPDIR`
         if test "$2" = "source"; then 
-          $run echo "\$TAR${TAR_FLAGS:+ $TAR_FLAGS} --hard-dereference -h -U -C / -x -f $file_name"
+          $run echo "\$TAR${TAR_FLAGS:+ $TAR_FLAGS} --hard-dereference -h -U -C / -x -f $trail_path/$file_name"
           $run eval "\$TAR${TAR_FLAGS:+ $TAR_FLAGS} --hard-dereference -h -U -C $myroot -x -f $tmp_dir_name/$file_name 2>\"\$TAR_LOG\""
         else
-          $run echo "\$TAR${TAR_FLAGS:+ $TAR_FLAGS} --hard-dereference -h -U -C / -x -v -f $file_name 2>\$TAR_LOG >$DB_ROOT/$name.lst"
+          $run echo "\$TAR${TAR_FLAGS:+ $TAR_FLAGS} --hard-dereference -h -U -C / -x -v -f $trail_path/$file_name 2>\$TAR_LOG >$DB_ROOT/$name.lst"
           $run eval "\$TAR${TAR_FLAGS:+ $TAR_FLAGS} --hard-dereference -h -U -C $myroot -x -v -f $tmp_dir_name/$file_name 2>\"\$TAR_LOG\" >\"$DB_ROOT/$name.lst\""
           $run eval "gzip -f $DB_ROOT/$name.lst"
           add_package_to_cygwin_db $name $file_name
