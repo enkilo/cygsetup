@@ -114,7 +114,7 @@ http_dl() {
   
   IFS="$IFS "  
   
-  [ "$TMP" ] && echo "Temp file: $TMP" 1>&2
+  #[ "$TMP" ] && echo "Temp file: $TMP" 1>&2
   
   [ "$OUTPUT" ] && 
   echo "Downloading $URL ..." 1>&2
@@ -125,7 +125,7 @@ http_dl() {
     if [ "$R" -eq 0 ]; then
       mv -f "$TMP" "$OUTPUT"
     else
-:      rm -f "$TMP"
+      rm -f "$TMP"
     fi
   fi
   )
@@ -582,7 +582,10 @@ $show "install_packages \""$1"\" \""$2"\""
       http:* | ftp:*)
         # if file is available check integrity 
         #echo "Package file:" $tmp_file_name 1>&2
-        if test ! -f "$tmp_dir_name/$file_name" || ! test_package_file "$tmp_file_name"; then
+        if [ "$FORCE" = true ]; then
+          rm -f "$tmp_dir_name/$file_name"
+        fi
+        if [ ! -f "$tmp_dir_name/$file_name" ] || ! test_package_file "$tmp_file_name"; then
           $run eval "(rm -rf "$tmp_file_name" 2>/dev/null
           
           #$WGET -c -O "$tmp_file_name" "$abspath"
@@ -596,10 +599,10 @@ $show "install_packages \""$1"\" \""$2"\""
         TAR_FLAGS=`get_tar_flags "$tmp_file_name"`
         TAR_LOG=`mktempfile $TMPDIR`
         if test "$2" = "source"; then 
-          $run echo "\$TAR${TAR_FLAGS:+ $TAR_FLAGS} --hard-dereference -h -U -C / -x -f $trail_path/$file_name"
+          $run echo "\$TAR${TAR_FLAGS:+ $TAR_FLAGS} --hard-dereference -h -U -C $myroot -x -f $trailpath/$file_name"
           $run eval "\$TAR${TAR_FLAGS:+ $TAR_FLAGS} --hard-dereference -h -U -C $myroot -x -f $tmp_dir_name/$file_name 2>\"\$TAR_LOG\""
         else
-          $run echo "\$TAR${TAR_FLAGS:+ $TAR_FLAGS} --hard-dereference -h -U -C / -x -v -f $trail_path/$file_name 2>\$TAR_LOG >$DB_ROOT/$name.lst"
+          $run echo "\$TAR${TAR_FLAGS:+ $TAR_FLAGS} --hard-dereference -h -U -C $myroot -x -v -f $trailpath/$file_name 2>\$TAR_LOG >$DB_ROOT/$name.lst"
           $run eval "\$TAR${TAR_FLAGS:+ $TAR_FLAGS} --hard-dereference -h -U -C $myroot -x -v -f $tmp_dir_name/$file_name 2>\"\$TAR_LOG\" >\"$DB_ROOT/$name.lst\""
           $run eval "gzip -f $DB_ROOT/$name.lst"
           add_package_to_cygwin_db $name $file_name
@@ -619,6 +622,7 @@ $show "install_packages \""$1"\" \""$2"\""
              ;;
            esac
          done <"$TAR_LOG")
+        rm -f "$TAR_LOG"
         ;;
       file:*)
         url=`echo $mirror_url | sed 's,^file:,,g'`
@@ -789,6 +793,7 @@ process_args() {
       --list-only*) mode="-r" LIST_ONLY="true"; shift ;; 
       --download*) mode="-r" DOWNLOAD_ONLY="true"; shift ;; 
       --root=*) ROOT=${1#*=} ; shift ;;
+      --force) FORCE=true; shift ;;
       --arch=*) echo "Setting arch to ${1#*=}" 1>&2 ; arch=`get_arch_suffix ${1#*=}` ;  shift ;;
       --mirror=*) set_mirror="${set_mirror:+$set_mirror }${1#*=}"; shift ;;
       *) break ;;
