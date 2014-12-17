@@ -29,6 +29,9 @@
 #------------------------------------------------------------
 # cyglib.sh is included below 
 #------------------------------------------------------------
+if [ -n "$temp" -a -d "$temp" ]; then
+  TMPDIR=$(cygpath "$temp")
+fi
 
 #ROOT=""
 DB_ROOT="$ROOT/etc/setup"
@@ -36,7 +39,7 @@ DB="$DB_ROOT/installed.db"
 CONF="$DB_ROOT/cygsetup.conf"
 TAR="tar -U"
 
-type wget 2>/dev/null >/dev/null && WGET="wget --no-config --content-disposition --follow-ftp --user-agent=cygsetup --progress=bar:force:noscroll"
+type wget 2>/dev/null >/dev/null && WGET="wget -q --no-config --content-disposition --follow-ftp --user-agent=cygsetup --progress=bar:force:noscroll"
 type curl 2>/dev/null >/dev/null && CURL="curl -q -k -L -#"
 type lynx 2>/dev/null >/dev/null && LYNX="lynx -accept_all_cookies -force_secure"
 
@@ -44,7 +47,7 @@ basename() { set "${@##*/}"; echo "${1%$2}"; }
 
 mktempfile() { 
  (prefix=${0##*/};
-  path=${1-${TMPDIR-"/tmp"}}
+  path=${1-${TMPDIR-"tmp"}}
   tempfile=${path}/${prefix#-}.${2:-$RANDOM}
   rm -f "$tempfile"
   echo -n > "$tempfile"
@@ -93,7 +96,7 @@ http_dl() {
   CMD=
   if [ "$OUTPUT" ]; then
     HASH=`echo "${OUTPUT#*/cygwin*/}" | sha1sum`
-    TMP=`mktempfile /tmp "${HASH:1:8}"`
+    TMP=`mktempfile $TMPDIR "${HASH:1:8}"`
     rm -f "$OUTPUT"
   else
     TMP=
@@ -113,7 +116,8 @@ http_dl() {
   
   [ "$TMP" ] && echo "Temp file: $TMP" 1>&2
   
-  $run echo "+ ${CMD//\$OUTPUT/$OUTPUT}" 1>&2  
+  echo "Downloading $URL to $(cygpath -m "$OUTPUT") ..." 1>&2
+ # $run echo "+ ${CMD//\$OUTPUT/$OUTPUT}" 1>&2  
   $run eval "(OUTPUT=$TMP; $CMD); R=$?"
   
   if [ -n "$TMP" ]; then
@@ -153,7 +157,7 @@ config_print()
   echo "DB_ROOT=$DB_ROOT" 
   echo "CONF=$CONF"
   echo "arch=$arch"
-  echo "dldir=${dldir:-/tmp/`basename "$0" .sh`}"
+  echo "dldir=${dldir:-$TMPDIR/`basename "$0" .sh`}"
   echo "area=\"$area\""
   echo "default_mirror='$default_mirror'"
   echo "mirror='$mirror'"
@@ -358,7 +362,7 @@ list_packages_for_upgrade()
   if test -z "$1"; then 
     installed=`grep -v "INSTALLED" $DB | gawk '{ printf("%s#%s ",$1,$2);}'`
   else 
-    TMPFILE=/tmp/`basename $0`.$$
+    TMPFILE=$TMPDIR/`basename $0`.$$
     rm $TMPFILE 2>/dev/null
     for i in `echo $1`; do
       echo $i >$TMPFILE
@@ -366,7 +370,7 @@ list_packages_for_upgrade()
     installed=`grep -f "$TMPFILE" $DB | gawk '{ printf("%s#%s ",$1,$2);}'`
   fi 
 
-  TMPFILE=/tmp/`basename $0`.$$
+  TMPFILE=$TMPDIR/`basename $0`.$$
   rm $TMPFILE 2>/dev/null
 
   for i in `echo $installed`; do 
@@ -407,7 +411,7 @@ get_installed_packages()
 build_dep_list()
 {
   ret=
-  TMPFILE=/tmp/`basename $0`.$$
+  TMPFILE=$TMPDIR/`basename $0`.$$
   rm $TMPFILE 2>/dev/null
   for i in $1; do
     echo $i >>$TMPFILE
@@ -534,6 +538,7 @@ get_source_url_path()
 # $2 - 'source' - install source package 
 install_packages()
 {
+  #echo "TMPDIR=$TMPDIR" 1>&2
 $show "install_packages \""$1"\" \""$2"\""
   echo "------- install packages --------"
   for i in $1; do
@@ -545,15 +550,23 @@ $show "install_packages \""$1"\" \""$2"\""
      *) abspath="${mirror_url%/}/$relpath" ;;
      esac
     file_name=${relpath##*/}
-    tmp_file_name=`echo "$relpath" | sed "s|.*/\([^/]\+\)/\+\([^/]\+\)/\+release/|/tmp/cygsetup/\1/\2/release/|"`
-    tmp_dir_name=`dirname "$tmp_file_name"`
     
-#    reldir=`dirname $relpath` 
-#    for m in $mirror_url; do    
-#      reldir=${reldir#`dirname "$m"`/}
-#    done    
-#    tmp_dir_name=${dldir:-/tmp/`basename "$0" .sh`}/$reldir
-#    echo tmp_dir_name="$tmp_dir_name" 1>&2
+    trailpath=$abspath
+    trailpath=${trailpath#*/cygwin/}
+    trailpath=${trailpath#*/cygwinports/}
+    
+    outpath=${abspath%/$trailpath}
+    
+#    outpath=${outpath%/cygwin*}
+#    outpath=${outpath%/cygwinports/*}
+    
+    
+    outpath=${outpath//":"/"%3a"}
+    outpath=${outpath//"/"/"%2f"}
+    
+    tmp_file_name=$TMPDIR/cygsetup/$outpath/$trailpath
+#    tmp_file_name=`echo "$relpath" | sed "s|.*/\([^/]\+\)/\+\([^/]\+\)/\+release/|$TMPDIR/cygsetup/\1/\2/release/|"`
+    tmp_dir_name=`dirname "$tmp_file_name"`
     
     mkdir -p "$tmp_dir_name"
 
@@ -580,7 +593,7 @@ $show "install_packages \""$1"\" \""$2"\""
           return 0
         fi
         TAR_FLAGS=`get_tar_flags "$tmp_file_name"`
-        TAR_LOG=`mktempfile /tmp`
+        TAR_LOG=`mktempfile $TMPDIR`
         if test "$2" = "source"; then 
           $run echo "\$TAR${TAR_FLAGS:+ $TAR_FLAGS} --hard-dereference -h -U -C $myroot -x -f $tmp_dir_name/$file_name"
           $run eval "\$TAR${TAR_FLAGS:+ $TAR_FLAGS} --hard-dereference -h -U -C $myroot -x -f $tmp_dir_name/$file_name 2>\"\$TAR_LOG\""
