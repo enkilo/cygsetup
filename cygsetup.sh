@@ -62,7 +62,7 @@ test_package_file() {
     bz2 | tbz | tbz2) DECOMPRESS="bzip2 -d -f -c" ;;
     gz | tgz) DECOMPRESS="gzip -d -f -c" ;;
     lzma) DECOMPRESS="lzma -d -f -c" ;;
-    *) echo "No such compression format: $EXT" 1>&2; exit 1 ;;
+    *) echo "No such compression format: $EXT" 1>&9; exit 1 ;;
   esac
   R=$(eval "$DECOMPRESS <\"\$1\" | (tar -t >/dev/null; echo \$?)" 2>/dev/null)
   exit $R)
@@ -75,7 +75,7 @@ get_tar_flags() {
     bz2 | tbz | tbz2) echo "-j" ;;
     gz | tgz) echo "-z" ;;
     lzma) echo "--use-compress-program=lzma" ;;
-    *) echo "No such compression format: $EXT" 1>&2; exit 1 ;;
+    *) echo "No such compression format: $EXT" 1>&9; exit 1 ;;
   esac)
 }
 
@@ -114,11 +114,11 @@ http_dl() {
   
   IFS="$IFS "  
   
-  #[ "$TMP" ] && echo "Temp file: $TMP" 1>&2
+  #[ "$TMP" ] && echo "Temp file: $TMP" 1>&9
   
   [ "$OUTPUT" ] && 
-  echo "Downloading $URL ..." 1>&2
- # $run echo "+ ${CMD//\$OUTPUT/$OUTPUT}" 1>&2  
+  echo "Downloading $URL ..." 1>&9
+ # $run echo "+ ${CMD//\$OUTPUT/$OUTPUT}" 1>&9  
   $run eval "(OUTPUT=$TMP; $CMD); R=$?"
   
   if [ -n "$TMP" ]; then
@@ -134,7 +134,7 @@ http_dl() {
 get_arch()
 {
   test -z "$arch" && arch=`get_arch_suffix`
-  echo arch=$arch 1>&2
+  echo arch=$arch 1>&9
 }
 
 config_write()
@@ -148,8 +148,8 @@ config_write()
   echo "default_mirror=\"$default_mirror\"" >>$CONF
   echo "mirror=\"$mirror\"" >>$CONF
   echo "mirror_url=\"$mirror_url\"" >>$CONF
-  echo "setup_ini=$DB_ROOT/setup.ini" >>$CONF
-  echo "setup_ini_loaded=$setup_ini_loaded" >>$CONF
+  #echo "setup_ini=$DB_ROOT/setup.ini" >>$CONF
+  #echo "setup_ini_loaded=$setup_ini_loaded" >>$CONF
 }
 
 config_print()
@@ -163,17 +163,18 @@ config_print()
   echo "default_mirror='$default_mirror'"
   echo "mirror='$mirror'"
   echo "mirror_url='$mirror_url'"
-  echo "setup_ini=$DB_ROOT/setup.ini"
-  echo "setup_ini_loaded=$setup_ini_loaded"
+  #echo "setup_ini=$DB_ROOT/setup.ini"
+  #echo "setup_ini_loaded=$setup_ini_loaded"
 }
 
 
 config_read()
 {
-  #echo "CONF=$CONF" 1>&2
+  #echo "CONF=$CONF" 1>&9
   if ! test -f "$CONF"; then  
     config_write
   else 
+    echo "Loading config $CONF" 1>&9
     . $CONF
   fi
   
@@ -182,6 +183,7 @@ config_read()
     config_write
   fi
 }
+
 get_arch_suffix()
 {
    if [ -z "$1" -a -n "$arch" ]; then
@@ -191,7 +193,7 @@ get_arch_suffix()
 
    [ -n "$1" ] && MACHINE="$1" || MACHINE=`$ROOT/bin/uname -m`
    
-   echo MACHINE="$MACHINE" 1>&2
+   echo MACHINE="$MACHINE" 1>&9
    
    case "${MACHINE}" in
      i[3-6]86) echo x86 ;;
@@ -262,7 +264,7 @@ load_setup_ini()
 mkdir -p "$DB_ROOT/"
 rm -f "$DB_ROOT/setup.ini"
 for url in $mirror_url; do
-  echo $url 1>&2
+  echo $url 1>&9
   # unpack archive 
   case $url in
     http:* | ftp:*)
@@ -310,6 +312,7 @@ done >"$DB_ROOT/setup.ini"
 }
 
 get_package_info() {
+  echo "Reading $DB_ROOT/setup.ini" 1>&9
 	sed -n  <"$DB_ROOT/setup.ini"  "/^@ ${1}\$/ {
 	:lp
 	/: \"[^\"\n]*\$/ { N; s|\n\([^\n]*\)\$|\\\\n\\1|; b lp; }	
@@ -320,6 +323,7 @@ get_package_info() {
 }
 
 get_all_package_info() {
+  echo "Reading $DB_ROOT/setup.ini" 1>&9
 	sed -n  <"$DB_ROOT/setup.ini"  "/^@ / {
 	:lp
 	N
@@ -339,6 +343,7 @@ list_package()
   get_installed_packages
   installed_list=$ret
   
+  echo "Reading $DB_ROOT/setup.ini" 1>&9
   gawk '$1 == "@" && (KEY == "" || $2 == KEY) {found=1; name=$2;}
         $1 == "version:" {ver=$2;}
         $1 == "sdesc:" { $1=""; desc=$0}
@@ -496,7 +501,7 @@ check_for_not_installed_packages()
 # 
 get_install_url_path()
 {
-  echo "------- download package path --------" 1>&2
+  echo "------- download package path --------" 1>&9
   ret=
   for i in `echo $1`; do
     FILE=`gawk '$1 == "@" && $2 == KEY { found=1} $1 == "install:" && found == 1 { print $2; found=0 }' KEY="$i" $DB_ROOT/setup.ini`
@@ -507,7 +512,7 @@ get_install_url_path()
     fi
   done
   set -- ${ret%%'#'*}
-  echo 1>&2 "$@" #get_install_url_path=$ret" 
+  echo 1>&9 "$@" #get_install_url_path=$ret" 
 }
 
 #
@@ -539,7 +544,7 @@ get_source_url_path()
 # $2 - 'source' - install source package 
 install_packages()
 {
-  #echo "TMPDIR=$TMPDIR" 1>&2
+  #echo "TMPDIR=$TMPDIR" 1>&9
 $show "install_packages \""$1"\" \""$2"\""
   echo "------- install packages --------"
   for i in $1; do
@@ -581,7 +586,7 @@ $show "install_packages \""$1"\" \""$2"\""
     case $mirror_url in
       http:* | ftp:*)
         # if file is available check integrity 
-        #echo "Package file:" $tmp_file_name 1>&2
+        #echo "Package file:" $tmp_file_name 1>&9
         if [ "$FORCE" = true ]; then
           rm -f "$tmp_dir_name/$file_name"
         fi
@@ -618,7 +623,7 @@ $show "install_packages \""$1"\" \""$2"\""
                rm -f /"$LINK"
                mkdir -p "$(dirname "/$LINK")"
                ln -svf "/$TARGET" /"$LINK"
-#               echo "Hard link: $LINK $TARGET" 1>&2
+#               echo "Hard link: $LINK $TARGET" 1>&9
              ;;
            esac
          done <"$TAR_LOG")
@@ -718,6 +723,9 @@ run_postinstall_script()
 #------------------------------------------------------------
 # end of cyglib.sh 
 #------------------------------------------------------------
+
+exec 9>&2
+
 config_read
 
 origin_mirror=$mirror
@@ -767,7 +775,7 @@ fi
 
 process_args() {
   while :; do
-    #echo "Processing arg: $1" 1>&2
+    #echo "Processing arg: $1" 1>&9
     case $1 in
     -q|--query|-l|--list|-f|--files|-d|--deps|-c|--check|-l|--list|-r|--reinstall|-ds|--source|-u|--upgrade|-i|--install|-e|--erase|-h|--help|--show|--info)
       if [ -z "$mode" ]; then
@@ -787,14 +795,14 @@ process_args() {
          esac
          shift 2
          pkgs=`get_all_package_info | grep -i $GREP_ARGS -E "\|$what[^|]*($expr)" | sed 's,^@ ,, ; s,|.*,,'`
-         echo "Packages:" $pkgs 1>&2
+         echo "Packages:" $pkgs 1>&9
          set -- "$@" $pkgs
       ;;
       --list-only*) mode="-r" LIST_ONLY="true"; shift ;; 
       --download*) mode="-r" DOWNLOAD_ONLY="true"; shift ;; 
       --root=*) ROOT=${1#*=} ; shift ;;
       --force) FORCE=true; shift ;;
-      --arch=*) echo "Setting arch to ${1#*=}" 1>&2 ; arch=`get_arch_suffix ${1#*=}` ;  shift ;;
+      --arch=*) echo "Setting arch to ${1#*=}" 1>&9 ; arch=`get_arch_suffix ${1#*=}` ;  shift ;;
       --mirror=*) set_mirror="${set_mirror:+$set_mirror }${1#*=}"; shift ;;
       *) break ;;
     esac
@@ -830,7 +838,7 @@ if [ "$set_mirror" ]; then
 fi
 
 while :; do
-      #echo "mode=$mode" 1>&2
+      #echo "mode=$mode" 1>&9
   case $mode in
     --mirror)
       get_mirror_list
@@ -861,7 +869,7 @@ s/source: \(.*\)/Source: \1/'
     ;;
     
     -q | --query)
-      echo "option=$option" 1>&2
+      echo "option=$option" 1>&9
         case $option in 
           # all packages 
           -a |--all)
