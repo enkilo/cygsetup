@@ -46,16 +46,9 @@ type lynx 2>/dev/null >/dev/null && LYNX="lynx -accept_all_cookies -force_secure
 basename() { set "${@##*/}"; echo "${1%$2}"; }
 
 mktempfile() { 
- #mktemp ${1+"$1"} || 
- (
- prefix=${0##*/};
- if [ $# -gt 1 ]; then
-  path=${1-${TMPDIR:-"/tmp"}}
-  tempfile="${path}/${prefix#-}.${2:-$RANDOM}"
-else
-  path=${TMPDIR:-"/tmp"}
-  tempfile="${path}/${prefix#-}.${1:-$RANDOM}"
-fi
+ (prefix=${0##*/};
+  path=${1-${TMPDIR-"tmp"}}
+  tempfile=${path}/${prefix#-}.${2:-$RANDOM}
   rm -f "$tempfile"
   echo -n > "$tempfile"
   echo "$tempfile")
