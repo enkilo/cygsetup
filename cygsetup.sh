@@ -47,7 +47,7 @@ basename() { set "${@##*/}"; echo "${1%$2}"; }
 
 mktempfile() { 
  (prefix=${0##*/};
-  path=${1-${TMPDIR-"tmp"}}
+  path=${1-${TMPDIR-"/tmp"}}
   tempfile=${path}/${prefix#-}.${2:-$RANDOM}
   rm -f "$tempfile"
   echo -n > "$tempfile"
