@@ -29,9 +29,11 @@
 #------------------------------------------------------------
 # cyglib.sh is included below 
 #------------------------------------------------------------
-if [ -n "$temp" -a -d "$temp" ]; then
-  TMPDIR=$(cygpath "$temp")
-fi
+#if [ -n "$TMP" -a -d "$TMP" ]; then
+#  TMPDIR=$(cygpath "$TMP")
+#else
+  TMPDIR=/tmp
+#fi
 
 #ROOT=""
 DB_ROOT="$ROOT/etc/setup"
@@ -46,12 +48,12 @@ type lynx 2>/dev/null >/dev/null && LYNX="lynx -accept_all_cookies -force_secure
 basename() { set "${@##*/}"; echo "${1%$2}"; }
 
 mktempfile() { 
- (prefix=${0##*/};
-  path=${1-${TMPDIR-"/tmp"}}
-  tempfile=${path}/${prefix#-}.${2:-$RANDOM}
-  rm -f "$tempfile"
-  echo -n > "$tempfile"
-  echo "$tempfile")
+ (PREFIX=${0##*/};
+  TMPPATH=${1-${TMPDIR-"/tmp"}}
+  TEMPFILE=${TMPPATH}/${PREFIX#-}.${2:-$RANDOM}
+  rm -f "$TEMPFILE"
+  echo -n > "$TEMPFILE"
+  echo "$TEMPFILE")
 }
 
 
@@ -72,7 +74,7 @@ get_tar_flags() {
  (EXT=${1##*.}
   case "$EXT" in
     xz | txz) echo "-J" ;;
-    bz2 | tbz | tbz2) echo "-j" ;;
+    bz2 | tbz | tbz2) echo "-J" ;;
     gz | tgz) echo "-z" ;;
     lzma) echo "--use-compress-program=lzma" ;;
     *) echo "No such compression format: $EXT" 1>&9; exit 1 ;;
@@ -82,15 +84,16 @@ get_tar_flags() {
 #
 # default settings 
 # 
-show=:
+SHOW=:
 #show=echo
 area="Europe"
-default_mirror="file:/d" 
+DEFAULT_MIRROR="FILE:/d" 
 mirror=1
-mirror_url=
+MIRROR_URL=
 
-# http_dl <url> [output-file]
+# http_dl <URL> [output-file]
 http_dl() {
+  echo http_dl "$@" 1>&2
  (URL=$1
   OUTPUT=$2
   CMD=
@@ -118,8 +121,8 @@ http_dl() {
   
   [ "$OUTPUT" ] && 
   echo "Downloading $URL ..." 1>&9
- # $run echo "+ ${CMD//\$OUTPUT/$OUTPUT}" 1>&9  
-  $run eval "(OUTPUT=$TMP; $CMD); R=$?"
+ # $RUN echo "+ ${CMD//\$OUTPUT/$OUTPUT}" 1>&9  
+  $RUN eval "(OUTPUT=$TMP; $CMD); R=$?"
   
   if [ -n "$TMP" ]; then
     if [ "$R" -eq 0 ]; then
@@ -133,38 +136,38 @@ http_dl() {
 
 get_arch()
 {
-  test -z "$arch" && arch=`get_arch_suffix`
-  echo arch=$arch 1>&9
+  test -z "$ARCH" && ARCH=`get_arch_suffix`
+  echo ARCH=$ARCH 1>&9
 }
 
 config_write()
 {
-  echo "ROOT=$root" >$CONF
+  echo "ROOT=$ROOT" >$CONF
   echo "DB_ROOT=$DB_ROOT" >>$CONF
   echo "CONF=$CONF" >>$CONF
-  echo "arch=$arch" >>$CONF
-  echo "dldir=\"$dldir\"" >>$CONF
+  echo "ARCH=$ARCH" >>$CONF
+  echo "DLDIR=\"$DLDIR\"" >>$CONF
   echo "area=\"$area\"" >>$CONF
-  echo "default_mirror=\"$default_mirror\"" >>$CONF
+  echo "DEFAULT_MIRROR=\"$DEFAULT_MIRROR\"" >>$CONF
   echo "mirror=\"$mirror\"" >>$CONF
-  echo "mirror_url=\"$mirror_url\"" >>$CONF
+  echo "MIRROR_URL=\"$MIRROR_URL\"" >>$CONF
   #echo "setup_ini=$DB_ROOT/setup.ini" >>$CONF
-  #echo "setup_ini_loaded=$setup_ini_loaded" >>$CONF
+  #echo "SETUP_INI_LOADED=$SETUP_INI_LOADED" >>$CONF
 }
 
 config_print()
 {
-  echo "ROOT=$root" 
+  echo "ROOT=$ROOT" 
   echo "DB_ROOT=$DB_ROOT" 
   echo "CONF=$CONF"
-  echo "arch=$arch"
-  echo "dldir=${dldir:-$TMPDIR/`basename "$0" .sh`}"
+  echo "ARCH=$ARCH"
+  echo "DLDIR=${DLDIR:-$TMPDIR/`basename "$0" .sh`}"
   echo "area=\"$area\""
-  echo "default_mirror='$default_mirror'"
+  echo "DEFAULT_MIRROR='$DEFAULT_MIRROR'"
   echo "mirror='$mirror'"
-  echo "mirror_url='$mirror_url'"
+  echo "MIRROR_URL='$MIRROR_URL'"
   #echo "setup_ini=$DB_ROOT/setup.ini"
-  #echo "setup_ini_loaded=$setup_ini_loaded"
+  #echo "SETUP_INI_LOADED=$SETUP_INI_LOADED"
 }
 
 
@@ -178,7 +181,7 @@ config_read()
     . $CONF
   fi
   
-  if test "x$arch" = x; then
+  if test "x$ARCH" = x; then
     get_arch
     config_write
   fi
@@ -186,8 +189,8 @@ config_read()
 
 get_arch_suffix()
 {
-   if [ -z "$1" -a -n "$arch" ]; then
-     echo "$arch"
+   if [ -z "$1" -a -n "$ARCH" ]; then
+     echo "$ARCH"
      return 0
    fi
 
@@ -207,7 +210,7 @@ get_mirror_list()
 {
   if ! test -f "$DB_ROOT/mirrors.lst"; then 
     (http_dl "http://www.cygwin.com/mirrors.lst"
-    http_dl "http://sourceware.org/mirrors.html"  |sed -n 's,.*>\([^< \t:]\+\)[: \t]*<a href="\([^"]*\)/*\">\([^<]*\)</a>.*,\2/cygwinports;\3;\1;\1,p' | sed '/rsync:/d; s,\s*,,g'
+    http_dl "http://sourceware.org/mirrors.html"  |sed -n 's,.*>\([^< \t:]\+\)[: \t]*<a href="\([^"]*\)/*\">\([^<]*\)</a>.*,\2/cygwinports;\3;\1;\1,P' | sed '/rsync:/d; s,\s*,,g'
     
     ) >"$DB_ROOT/mirrors.lst"
   fi
@@ -218,11 +221,11 @@ get_mirror_list()
 # 
 build_area_list()
 {
-  _all_areas=`grep -v "^#" $DB_ROOT/mirrors.lst | sed 's, ,#,g' | gawk 'BEGIN { FS=";"} { print $3; }' | sort | uniq`
-  j=1
-  for i in $_all_areas; do 
-    all_areas="$all_areas $j~$i"
-    j=`expr $j + 1` 
+  _ALL_AREAS=`grep -v "^#" $DB_ROOT/mirrors.lst | sed 's, ,#,g' | gawk 'BEGIN { FS=";"} { print $3; }' | sort | uniq`
+  J=1
+  for i in $_ALL_AREAS; do 
+    ALL_AREAS="$ALL_AREAS $J~$i"
+    J=`EXPR $J + 1` 
   done
 }
 
@@ -233,78 +236,78 @@ set_new_mirror()
 {
   mirror=$*
   if ! test `echo $* | grep "^[0-9]" 2>/dev/null`; then 
-    mirror_url=${*%/}
+    MIRROR_URL=${*%/}
   else 
-    for i in $all_areas; do
-      area_name=`echo $i | sed 's,^.*~,,g;s,#, ,g'`
-      area_num=`echo $i | sed 's,~.*$,,g'`
-      url=`grep "$area_name" $DB_ROOT/mirrors.lst | gawk 'BEGIN { FS=";"; i=1} { if(cur==sprintf("%d%d",mn,i) || cur==mn && i==1) print $1; i++; }' mn="$area_num" cur="$1" | sed 's,/*$,,'`
-      if test -n "$url"; then 
-        mirror_url=$url
+    for i in $ALL_AREAS; do
+      AREA_NAME=`echo $i | sed 's,^.*~,,g;s,#, ,g'`
+      AREA_NUM=`echo $i | sed 's,~.*$,,g'`
+      URL=`grep "$AREA_NAME" $DB_ROOT/mirrors.lst | gawk 'BEGIN { FS=";"; i=1} { if(cur==sprintf("%d%d",mn,i) || cur==mn && i==1) print $1; i++; }' mn="$AREA_NUM" cur="$1" | sed 's,/*$,,'`
+      if test -n "$URL"; then 
+        MIRROR_URL=$URL
       fi
     done
   fi
   echo "mirror='"$*"'"
-  echo "mirror_url='"$mirror_url"'"
+  echo "MIRROR_URL='"$MIRROR_URL"'"
 }
 
 list_all_mirrors()
 {
-  for i in $all_areas; do
-    area_name=`echo $i | sed 's,^.*~,,g;s,#, ,g'`
-    area_num=`echo $i | sed 's,~.*$,,g'`
-    echo $area_name
-    grep "$area_name" $DB_ROOT/mirrors.lst | gawk 'BEGIN { FS=";"; i=1} { if ($4 == old) c=""; else c=$4; if(cur==sprintf("%d%d",mn,i) || cur==mn && i==1) sel=" >"; else sel="  "; printf("%s%1d%-2d  %-14s %s\n",sel,mn,i++,c,$1); old=$4;}' mn="$area_num" cur="$mirror"
+  for i in $ALL_AREAS; do
+    AREA_NAME=`echo $i | sed 's,^.*~,,g;s,#, ,g'`
+    AREA_NUM=`echo $i | sed 's,~.*$,,g'`
+    echo $AREA_NAME
+    grep "$AREA_NAME" $DB_ROOT/mirrors.lst | gawk 'BEGIN { FS=";"; i=1} { if ($4 == old) c=""; else c=$4; if(cur==sprintf("%d%d",mn,i) || cur==mn && i==1) sel=" >"; else sel="  "; printf("%s%1d%-2d  %-14s %s\n",sel,mn,i++,c,$1); old=$4;}' mn="$AREA_NUM" cur="$mirror"
     echo 
   done
 }
 
 load_setup_ini()
 {
-mkdir -p "$DB_ROOT/"
+mkdir -P "$DB_ROOT/"
 rm -f "$DB_ROOT/setup.ini"
-for url in $mirror_url; do
-  echo $url 1>&9
+for URL in $MIRROR_URL; do
+  echo $URL 1>&9
   # unpack archive 
-  case $url in
+  case $URL in
     http:* | ftp:*)
 #<<<<<<< HEAD
-    cmd="(cd \"\$DB_ROOT\"; URL=\"$url/$(get_arch_suffix)\"; http_dl \"\$URL/setup.bz2\" | bzip2 -d -c - | sed \"\\\\|/| s|^\\\\([a-z]*\\\\):\\\\s\\\\+|\\\\1: \${URL%/$(get_arch_suffix)}/|\")  || exit 1"
-      $show eval "$cmd"
-      $run eval "$cmd"
+    CMD="(cd \"\$DB_ROOT\"; URL=\"$URL/$(get_arch_suffix)\"; http_dl \"\$URL/setup.bz2\" | bzip2 -d -c - | sed \"\\\\|/| s|^\\\\([a-z]*\\\\):\\\\s\\\\+|\\\\1: \${URL%/$(get_arch_suffix)}/|\")  || exit 1"
+      $SHOW eval "$CMD"
+      $RUN eval "$CMD"
 #      $show eval "(cd \"\$DB_ROOT\"; bzip2 -d -c -  >>setup.ini)"
-#      $run eval "(cd \"\$DB_ROOT\"; bzip2 -d -c setup.bz2  >>setup.ini)"
-      setup_ini_loaded=1
+#      $RUN eval "(cd \"\$DB_ROOT\"; bzip2 -d -c setup.bz2  >>setup.ini)"
+      SETUP_INI_LOADED=1
       ;;
-    file:*)
-      url=`echo $url | sed 's,^file:,,g'`
-      $show "(bzip2 -d -c $url/setup.bz2)  || exit 1"
-      $run eval "(bzip2 -d -c $url/setup.bz2)  || exit 1"
-      setup_ini_loaded=1
+    FILE:*)
+      URL=`echo $URL | sed 's,^FILE:,,g'`
+      $SHOW "(bzip2 -d -c $URL/setup.bz2)  || exit 1"
+      $RUN eval "(bzip2 -d -c $URL/setup.bz2)  || exit 1"
+      SETUP_INI_LOADED=1
       ;;
     /*)
-      url=$url;
-      $show "(bzip2 -d -c $url/setup.bz2)  || exit 1"
-      $run eval "(bzip2 -d -c $url/setup.bz2)  || exit 1"
+      URL=$URL;
+      $SHOW "(bzip2 -d -c $URL/setup.bz2)  || exit 1"
+      $RUN eval "(bzip2 -d -c $URL/setup.bz2)  || exit 1"
 #=======
-#      $show eval "(cd $DB_ROOT; http_dl \"$mirror_url/$arch/setup.bz2\" setup.bz2) || exit 1"
-#      $run eval "(cd $DB_ROOT; http_dl \"$mirror_url/$arch/setup.bz2\" setup.bz2) || exit 1"
+#      $show eval "(cd $DB_ROOT; http_dl \"$MIRROR_URL/$ARCH/setup.bz2\" setup.bz2) || exit 1"
+#      $RUN eval "(cd $DB_ROOT; http_dl \"$MIRROR_URL/$ARCH/setup.bz2\" setup.bz2) || exit 1"
 #      $show eval "(cd $DB_ROOT; bzip2 -d -c setup.bz2  >setup.ini)"
-#      $run eval "(cd $DB_ROOT; bzip2 -d -c setup.bz2  >setup.ini)"
-#      setup_ini_loaded=1
+#      $RUN eval "(cd $DB_ROOT; bzip2 -d -c setup.bz2  >setup.ini)"
+#      SETUP_INI_LOADED=1
 #      ;;
 #    file:*)
-#      url=`echo $mirror_url | sed 's,^file:,,g'`
-#      $show "(bzip2 -d -c $url/$arch/setup.bz2 >$DB_ROOT/setup.ini)  || exit 1"
-#      $run eval "(bzip2 -d -c $url/$arch/setup.bz2 >$DB_ROOT/setup.ini)  || exit 1"
-#      setup_ini_loaded=1
+#      URL=`echo $MIRROR_URL | sed 's,^file:,,g'`
+#      $show "(bzip2 -d -c $URL/$ARCH/setup.bz2 >$DB_ROOT/setup.ini)  || exit 1"
+#      $RUN eval "(bzip2 -d -c $URL/$ARCH/setup.bz2 >$DB_ROOT/setup.ini)  || exit 1"
+#      SETUP_INI_LOADED=1
 #      ;;
 #    /*)
-#      url=$mirror_url;
-#      $show "(bzip2 -d -c $url/$arch/setup.bz2 >$DB_ROOT/setup.ini)  || exit 1"
-#      $run eval "(bzip2 -d -c $url/$arch/setup.bz2 >$DB_ROOT/setup.ini)  || exit 1"
+#      URL=$MIRROR_URL;
+#      $show "(bzip2 -d -c $URL/$ARCH/setup.bz2 >$DB_ROOT/setup.ini)  || exit 1"
+#      $RUN eval "(bzip2 -d -c $URL/$ARCH/setup.bz2 >$DB_ROOT/setup.ini)  || exit 1"
 #>>>>>>> 5613de26e0e70b7ee7a937144298dbe20da18d48
-      setup_ini_loaded=1
+      SETUP_INI_LOADED=1
       ;;
   esac 
 done >"$DB_ROOT/setup.ini"
@@ -318,7 +321,7 @@ get_package_info() {
 	/: \"[^\"\n]*\$/ { N; s|\n\([^\n]*\)\$|\\\\n\\1|; b lp; }	
 	N
 	/\\n\$/! { b lp; }
-	p
+	P
 	}"
 }
 
@@ -329,7 +332,7 @@ get_all_package_info() {
 	N
 	/\\n\$/! { b lp; }
 	s/\\n/|/g
-	p
+	P
 	}"
 }
 
@@ -341,23 +344,23 @@ list_all_packages()
 list_package()
 {
   get_installed_packages
-  installed_list=$ret
+  installed_list=$RET
   
   echo "Reading $DB_ROOT/setup.ini" 1>&9
-  gawk '$1 == "@" && (KEY == "" || $2 == KEY) {found=1; name=$2;}
+  gawk '$1 == "@" && (KEY == "" || $2 == KEY) {found=1; NAME=$2;}
         $1 == "version:" {ver=$2;}
         $1 == "sdesc:" { $1=""; desc=$0}
         $1 == "install:" {
           if (found) { 
-            if (index(INSTALLED,name))
-              x="I";
+            if (index(installed,NAME))
+              x="i";
             else
               x=" ";
               
-            printf("%-25s %s %-10s %8d %s\n",name,x,ver,$3,desc);
+            printf("%-25s %s %-10s %8d %s\n",NAME,x,ver,$3,desc);
             found=0; 
           } 
-        }' KEY="$1" INSTALLED="$ret" $DB_ROOT/setup.ini
+        }' KEY="$1" installed="$RET" $DB_ROOT/setup.ini
 }
 
 #
@@ -366,7 +369,7 @@ list_package()
 list_packages_for_upgrade()
 {
   if test -z "$1"; then 
-    installed=`grep -v "INSTALLED" $DB | gawk '{ printf("%s#%s ",$1,$2);}'`
+    installed=`grep -v "installed" $DB | gawk '{ printf("%s#%s ",$1,$2);}'`
   else 
     TMPFILE=$TMPDIR/`basename $0`.$$
     rm $TMPFILE 2>/dev/null
@@ -380,9 +383,9 @@ list_packages_for_upgrade()
   rm $TMPFILE 2>/dev/null
 
   for i in `echo $installed`; do 
-    pkg=`echo $i | sed 's,#.*$,,g'`
-    file=`echo $i | sed 's,^.*#,,g'`
-    gawk '$1 == "@" && (KEY == "" || $2 == KEY) {found=1; name=$2;}
+    PKG=`echo $i | sed 's,#.*$,,g'`
+    FILE=`echo $i | sed 's,^.*#,,g'`
+    gawk '$1 == "@" && (KEY == "" || $2 == KEY) {found=1; NAME=$2;}
         $1 == "version:" {ver=$2;}
         $1 == "sdesc:" { $1=""; desc=$0}
         $1 == "install:" {
@@ -392,31 +395,31 @@ list_packages_for_upgrade()
               n=split($2,a,"/");
               filename=a[n]; 
               if (FILE != filename)
-                print name 
-                #" " FILE " " filename;
+                print NAME 
+                #" " file " " filename;
             found=0;
             exit 0
           } 
-        }' KEY="$pkg" FILE="$file" $DB_ROOT/setup.ini >>$TMPFILE
+        }' KEY="$PKG" FILE="$FILE" $DB_ROOT/setup.ini >>$TMPFILE
   done 
-  ret=`cat $TMPFILE`
+  RET=`cat $TMPFILE`
 }
 
 
 get_installed_packages()
 {
-  ret=`grep -v "INSTALLED" $DB | gawk '{printf("%s ",$1);}'`
+  RET=`grep -v "installed" $DB | gawk '{printf("%s ",$1);}'`
 }
 
 #
 # build dependency list 
 #
 # param is list of packages
-# the function returns a list of non installed related packages in variable $ret
+# the function returns a list of non installed related packages in variable $RET
 #
 build_dep_list()
 {
-  ret=
+  RET=
   TMPFILE=$TMPDIR/`basename $0`.$$
   rm $TMPFILE 2>/dev/null
   for i in $1; do
@@ -426,13 +429,13 @@ build_dep_list()
                     $1 = ""; print $0; found=0 
                 }' KEY="$i" $DB_ROOT/setup.ini`
                 
-    for j in $DEP; do
-      echo $j >>$TMPFILE
+    for J in $DEP; do
+      echo $J >>$TMPFILE
     done
   done
   cat $TMPFILE | sort | uniq >$TMPFILE.1
   for i in `cat $TMPFILE.1`; do 
-    ret="$ret $i" 
+    RET="$RET $i" 
   done
 }  
 
@@ -441,25 +444,25 @@ build_dep_list()
 # 
 # $1 - list of packages
 # 
-# return value 
-#   $ret - list of installed packages 
+# return VALUE 
+#   $RET - list of installed packages 
 #
 check_for_installed_packages()
 {
-  ret=
-  packages=`grep -v "INSTALLED" $DB | gawk '{printf("%s ",$1);}'`
+  RET=
+  packages=`grep -v "installed" $DB | gawk '{printf("%s ",$1);}'`
   for i in `echo $1`; do
     echo "i=$i"
     case "$packages" in
       *$i*)
-        ret="$ret $i"
+        RET="$RET $i"
         ;;
       *)
         ;;
     esac
   done
   
-  $show "check_for_installed_packages=$ret"
+  $SHOW "check_for_installed_packages=$RET"
 }
 
 #
@@ -467,28 +470,28 @@ check_for_installed_packages()
 # 
 # $1 - list of packages
 # 
-# return value 
-#   $ret - list of not installed packages 
+# return VALUE 
+#   $RET - list of not installed packages 
 #
 check_for_not_installed_packages()
 {
-  ret=
-  packages=`grep -v "INSTALLED" $DB | gawk '{printf("%s ",$1);}'`
-  $show "check_for_not_installed_packages=$1"
-  $show "packages=$packages"
+  RET=
+  packages=`grep -v "installed" $DB | gawk '{printf("%s ",$1);}'`
+  $SHOW "check_for_not_installed_packages=$1"
+  $SHOW "packages=$packages"
   for i in `echo $1`; do
-    $show "i=$i"
+    $SHOW "i=$i"
     case "$packages" in
       *$i*)
-        $show "!!!$i!!!"
+        $SHOW "!!!$i!!!"
         ;;
       *)
-        ret="$ret $i"
+        RET="$RET $i"
         ;;
     esac
   done
   
-  $show "check_for_not_installed_packages=$ret"
+  $SHOW "check_for_not_installed_packages=$RET"
 }
 
 #
@@ -496,23 +499,23 @@ check_for_not_installed_packages()
 # 
 # $1 - package list 
 # 
-# return value 
-#   $ret - list of $mirror based path 
+# return VALUE 
+#   $RET - list of $mirror based path 
 # 
 get_install_url_path()
 {
   echo "------- download package path --------" 1>&9
-  ret=
+  RET=
   for i in `echo $1`; do
     FILE=`gawk '$1 == "@" && $2 == KEY { found=1} $1 == "install:" && found == 1 { print $2; found=0 }' KEY="$i" $DB_ROOT/setup.ini`
     if test -z "$FILE"; then 
       echo "package '$i' not found on installation mirror"
     else 
-      ret="$ret $i#$FILE"
+      RET="$RET $i#$FILE"
     fi
   done
-  set -- ${ret%%'#'*}
-  echo 1>&9 "$@" #get_install_url_path=$ret" 
+  set -- ${RET%%'#'*}
+  echo 1>&9 "$@" #get_install_url_path=$RET" 
 }
 
 #
@@ -520,22 +523,22 @@ get_install_url_path()
 # 
 # $1 - package list 
 # 
-# return value 
-#   $ret - list of $mirror based path 
+# return VALUE 
+#   $RET - list of $mirror based path 
 # 
 get_source_url_path()
 {
   echo "------- download package path --------"
-  ret=
+  RET=
   for i in `echo $1`; do
     FILE=`gawk '$1 == "@" && $2 == KEY { found=1} $1 == "source:" && found == 1 { print $2; found=0 }' KEY="$i" $DB_ROOT/setup.ini`
     if test -z "$FILE"; then 
       echo "package '$i' not found on installation mirror"
     else 
-      ret="$ret $i#$FILE"
+      RET="$RET $i#$FILE"
     fi
   done
-  echo "get_source_url_path=$ret"
+  echo "get_source_url_path=$RET"
 }
 #
 # install packages 
@@ -545,73 +548,75 @@ get_source_url_path()
 install_packages()
 {
   #echo "TMPDIR=$TMPDIR" 1>&9
-$show "install_packages \""$1"\" \""$2"\""
+$SHOW "install_packages \""$1"\" \""$2"\""
   echo "------- install packages --------"
   for i in $1; do
-    name=`echo $i | gawk 'BEGIN {FS="#";} { print $1}'`
-    relpath=`echo $i | gawk 'BEGIN {FS="#";} { print $2}'`
+    NAME=`echo $i | gawk 'BEGIN {FS="#";} { print $1}'`
+    RELPATH=`echo $i | gawk 'BEGIN {FS="#";} { print $2}'`
     
-    case "$relpath" in
-     *://*) abspath="$relpath" ;;
-     *) abspath="${mirror_url%/}/$relpath" ;;
+    case "$RELPATH" in
+     *://*) ABSPATH="$RELPATH" ;;
+     *) ABSPATH="${MIRROR_URL%/}/$RELPATH" ;;
      esac
-    file_name=${relpath##*/}
+    FILE_NAME=${RELPATH##*/}
     
-    trailpath=$abspath
-    trailpath=${trailpath#*/cygwin/}
-    trailpath=${trailpath#*/cygwinports/}
+    TRAILPATH=$ABSPATH
+    TRAILPATH=${TRAILPATH#*/cygwin/}
+    TRAILPATH=${TRAILPATH#*/cygwinports/}
     
-    outpath=${abspath%/$trailpath}
+    OUTPATH=${ABSPATH%/$TRAILPATH}
     
-#    outpath=${outpath%/cygwin*}
-#    outpath=${outpath%/cygwinports/*}
+#    OUTPATH=${OUTPATH%/cygwin*}
+#    OUTPATH=${OUTPATH%/cygwinports/*}
     
     
-    outpath=${outpath//":"/"%3a"}
-    outpath=${outpath//"/"/"%2f"}
+    OUTPATH=${OUTPATH//":"/"%3a"}
+    OUTPATH=${OUTPATH//"/"/"%2f"}
     
-    tmp_file_name=$TMPDIR/$outpath/$trailpath
-#    tmp_file_name=`echo "$relpath" | sed "s|.*/\([^/]\+\)/\+\([^/]\+\)/\+release/|$TMPDIR/cygsetup/\1/\2/release/|"`
-    tmp_dir_name=`dirname "$tmp_file_name"`
+    TMP_FILE_NAME=${MIRROR_URL#*://} 
+    TMP_FILE_NAME=$TMPDIR/${TMP_FILE_NAME%%/*}/${FILE_NAME##*/}
     
-    mkdir -p "$tmp_dir_name"
+#    TMP_file_name=`echo "$RELPATH" | sed "s|.*/\([^/]\+\)/\+\([^/]\+\)/\+release/|$TMPDIR/cygsetup/\1/\2/release/|"`
+    TMP_DIR_NAME=`dirname "$TMP_FILE_NAME"`
+    
+    mkdir -P "$TMP_DIR_NAME"
 
     if test "$2" = "source"; then 
-      myroot=$ROOT/usr/src
+      MYROOT=$ROOT/usr/src
     else
-      myroot=$ROOT/
+      MYROOT=$ROOT/
     fi 
     # unpack archive 
          [ "$LIST_ONLY" = true ] && DL=echo || DL=http_dl
-    case $mirror_url in
+    case $MIRROR_URL in
       http:* | ftp:*)
         # if file is available check integrity 
-        #echo "Package file:" $tmp_file_name 1>&9
+        #echo "Package file:" $TMP_file_name 1>&9
         if [ "$FORCE" = true ]; then
-          rm -f "$tmp_dir_name/$file_name"
+          rm -f "$TMP_DIR_NAME/$FILE_NAME"
         fi
-        if [ ! -f "$tmp_dir_name/$file_name" ] || ! test_package_file "$tmp_file_name"; then
-          $run eval "(rm -rf "$tmp_file_name" 2>/dev/null
+        if [ ! -f "$TMP_DIR_NAME/$FILE_NAME" ] || ! test_package_file "$TMP_FILE_NAME"; then
+          $RUN eval "(rm -rf "$TMP_FILE_NAME" 2>/dev/null
           
-          #$WGET -c -O "$tmp_file_name" "$abspath"
-          $DL "$abspath" "$tmp_file_name"
+          #$WGET -c -O "$TMP_file_name" "$ABSPATH"
+          $DL "$ABSPATH" "$TMP_FILE_NAME"
           
          )"
         fi
         if [ "$DOWNLOAD_ONLY" = true ]; then
           return 0
         fi
-        TAR_FLAGS=`get_tar_flags "$tmp_file_name"`
+        TAR_FLAGS=`get_tar_flags "$TMP_FILE_NAME"`
         TAR_LOG=`mktempfile $TMPDIR`
         if test "$2" = "source"; then 
-          $run echo "\$TAR${TAR_FLAGS:+ $TAR_FLAGS} --hard-dereference -h -U -C $myroot -x -f $trailpath/$file_name"
-          $run eval "\$TAR${TAR_FLAGS:+ $TAR_FLAGS} --hard-dereference -h -U -C $myroot -x -f $tmp_dir_name/$file_name 2>\"\$TAR_LOG\""
+          $RUN echo "\$TAR${TAR_FLAGS:+ $TAR_FLAGS} --hard-dereference -h -U -C $MYROOT -x -f $TRAILPATH/$FILE_NAME"
+          $RUN eval "\$TAR${TAR_FLAGS:+ $TAR_FLAGS} --hard-dereference -h -U -C $MYROOT -x -f $TMP_DIR_NAME/$FILE_NAME 2>\"\$TAR_LOG\""
         else
-          $run echo "\$TAR${TAR_FLAGS:+ $TAR_FLAGS} --hard-dereference -h -U -C $myroot -x -v -f $trailpath/$file_name 2>\$TAR_LOG >$DB_ROOT/$name.lst"
-          $run eval "\$TAR${TAR_FLAGS:+ $TAR_FLAGS} --hard-dereference -h -U -C $myroot -x -v -f $tmp_dir_name/$file_name 2>\"\$TAR_LOG\" >\"$DB_ROOT/$name.lst\""
-          $run eval "gzip -f $DB_ROOT/$name.lst"
-          add_package_to_cygwin_db $name $file_name
-          run_postinstall_script $name 
+          $RUN echo "\$TAR${TAR_FLAGS:+ $TAR_FLAGS} --hard-dereference -h -U -C $MYROOT -x -v -f $TRAILPATH/$FILE_NAME 2>\$TAR_LOG >$DB_ROOT/$NAME.lst"
+          $RUN eval "\$TAR${TAR_FLAGS:+ $TAR_FLAGS} --hard-dereference -h -U -C $MYROOT -x -v -f $TMP_DIR_NAME/$FILE_NAME 2>\"\$TAR_LOG\" >\"$DB_ROOT/$NAME.lst\""
+          $RUN eval "gzip -f $DB_ROOT/$NAME.lst"
+          add_package_to_cygwin_db $NAME $FILE_NAME
+          run_postinstall_script $NAME 
         fi
         (while read -r LINE; do
            case "$LINE" in
@@ -621,7 +626,7 @@ $show "install_packages \""$1"\" \""$2"\""
                TARGET=${LINE##*"annot hard link to '"}
                TARGET=${TARGET%%"': "*}
                rm -f /"$LINK"
-               mkdir -p "$(dirname "/$LINK")"
+               mkdir -P "$(dirname "/$LINK")"
                ln -svf "/$TARGET" /"$LINK"
 #               echo "Hard link: $LINK $TARGET" 1>&9
              ;;
@@ -629,19 +634,19 @@ $show "install_packages \""$1"\" \""$2"\""
          done <"$TAR_LOG")
         rm -f "$TAR_LOG"
         ;;
-      file:*)
-        url=`echo $mirror_url | sed 's,^file:,,g'`
+      FILE:*)
+        URL=`echo $MIRROR_URL | sed 's,^FILE:,,g'`
         if test "$2" = "source"; then 
-          $run eval "$TAR --hard-dereference -h -U -C $myroot -xvf $url/$relpath 2>/dev/null"
+          $RUN eval "$TAR --hard-dereference -h -U -C $MYROOT -xvf $URL/$RELPATH 2>/dev/null"
         else
-          $run eval "$TAR --hard-dereference -h -U -C $myroot -xvf $url/$relpath 2>/dev/null | tee $DB_ROOT/$name.lst"
-          $run eval "gzip -f $DB_ROOT/$name.lst"
-          add_package_to_cygwin_db $name $file_name
-          run_postinstall_script $name 
+          $RUN eval "$TAR --hard-dereference -h -U -C $MYROOT -xvf $URL/$RELPATH 2>/dev/null | tee $DB_ROOT/$NAME.lst"
+          $RUN eval "gzip -f $DB_ROOT/$NAME.lst"
+          add_package_to_cygwin_db $NAME $FILE_NAME
+          run_postinstall_script $NAME 
         fi 
         ;;
       *)      
-        echo "unknown protocol in '$mirror_url'" ; exit 1;;
+        echo "unknown protocol in '$MIRROR_URL'" ; exit 1;;
     esac
   done 
 }
@@ -654,21 +659,21 @@ $show "install_packages \""$1"\" \""$2"\""
 #
 add_package_to_cygwin_db()
 {  
-  name=$1
-  file_name=$2
+  NAME=$1
+  FILE_NAME=$2
   
   # add entry to db 
-  $show "cp $DB $DB.bak" 
-  $run eval "cp $DB $DB.bak" 
+  $SHOW "cp $DB $DB.bak" 
+  $RUN eval "cp $DB $DB.bak" 
 
-  $show "grep -v "$name" $DB >$DB.$$" 
-  $run eval "grep -v "$name" $DB >$DB.$$" 
+  $SHOW "grep -v "$NAME" $DB >$DB.$$" 
+  $RUN eval "grep -v "$NAME" $DB >$DB.$$" 
 
-  $show "echo $name $file_name 0 >>$DB.$$"
-  $run eval "echo $name $file_name 0 >>$DB.$$"
+  $SHOW "echo $NAME $FILE_NAME 0 >>$DB.$$"
+  $RUN eval "echo $NAME $FILE_NAME 0 >>$DB.$$"
 
-  $show "mv $DB.$$ $DB" 
-  $run eval "mv $DB.$$ $DB" 
+  $SHOW "mv $DB.$$ $DB" 
+  $RUN eval "mv $DB.$$ $DB" 
 }
 
 #
@@ -677,32 +682,32 @@ add_package_to_cygwin_db()
 
 remove_package_from_cygwin_db()
 {  
-    name=`echo $1`
+    NAME=`echo $1`
 
-    if test -z "`grep "$name" $DB`"; then 
+    if test -z "`grep "$NAME" $DB`"; then 
       echo "package not found" 
       return 
     fi
 
     echo "remove package from db"
-    $show "cp $DB $DB.bak" 
-    $run eval "cp $DB $DB.bak" 
+    $SHOW "cp $DB $DB.bak" 
+    $RUN eval "cp $DB $DB.bak" 
   
-    $show "grep -v "$name" $DB >$DB.$$" 
-    $run eval "grep -v "$name" $DB >$DB.$$" 
+    $SHOW "grep -v "$NAME" $DB >$DB.$$" 
+    $RUN eval "grep -v "$NAME" $DB >$DB.$$" 
   
-    $show "mv $DB.$$ $DB" 
-    $run eval "mv $DB.$$ $DB" 
+    $SHOW "mv $DB.$$ $DB" 
+    $RUN eval "mv $DB.$$ $DB" 
 
-    if ! test -f "$DB_ROOT/$name.lst.gz" ; then
-      echo "could not remove files from package '$name'."
+    if ! test -f "$DB_ROOT/$NAME.lst.gz" ; then
+      echo "could not remove files from package '$NAME'."
       return
     fi 
 
     echo "removing package files"  
-    (cd /; zcat $DB_ROOT/$name.lst.gz | xargs rm -v 2>/dev/null )
-    rm /etc/postinstall/$name.sh* 2>/dev/null
-    rm $DB_ROOT/$name.lst.gz 
+    (cd /; zcat $DB_ROOT/$NAME.lst.gz | xargs rm -v 2>/dev/null )
+    rm /etc/postinstall/$NAME.sh* 2>/dev/null
+    rm $DB_ROOT/$NAME.lst.gz 
 }
 
 #
@@ -710,14 +715,14 @@ remove_package_from_cygwin_db()
 #
 run_postinstall_script()
 {
-  name=$1
+  NAME=$1
 
   # show postinstall script
   PIDIR=$ROOT/etc/postinstall
-  if test -f "$PIDIR/$name.sh"; then
+  if test -f "$PIDIR/$NAME.sh"; then
     cd $PIDIR
-    $show "$name.sh && mv $name.sh $name.sh.done"
-    $run eval "sh $name.sh && mv $name.sh $name.sh.done "
+    $SHOW "$NAME.sh && mv $NAME.sh $NAME.sh.done"
+    $RUN eval "sh $NAME.sh && mv $NAME.sh $NAME.sh.done "
   fi
 }
 #------------------------------------------------------------
@@ -728,39 +733,39 @@ exec 9>&2
 
 config_read
 
-origin_mirror=$mirror
+ORIGIN_MIRROR=$mirror
 
 # searches for packages containing files or list cygwin packages for an 
 # expression given as parameter.  
 # The script lookups the setup database in /etc/setup
 
-pkg_dir=$mirror_url
+pkg_dir=$MIRROR_URL
 
 print_help()
 {
-  echo "usage: cygsetup <mode> <options>     - generic command format"
+  echo "usage: cygsetup <MODE> <options>     - generic command format"
   echo
   echo "   --mirror                 - list all mirrors"
   echo "   --mirror=<num>           - set active mirror and download recent setup.ini"
   echo
   echo "   [-q | --query] [<opt>]   - query informations about installed packages"
   echo "    -q -l [-a | --all]      - query informations of all installed packages"
-  echo "    -q -l <pkg>             - query file of installed package <pkg>"
-  echo "    -q -f <file>            - find package for file <file>"
+  echo "    -q -l <PKG>             - query FILE of installed package <PKG>"
+  echo "    -q -f <FILE>            - find package for FILE <FILE>"
   echo
   echo "   [-l | --list] <opt>      - list informations about available packages from recent mirror"
-  echo "    -l <pkg>                - list informations about available <pkg>"
+  echo "    -l <PKG>                - list informations about available <PKG>"
   echo "    -l [-a | -all]          - list informations about all available"
   echo 
-  echo "   [-i | --install] <pkg>   - install package <pkg>"
+  echo "   [-i | --install] <PKG>   - install package <PKG>"
   echo
   echo "   [-u | --upgrade] <opt>   - upgrade package (please stop any running app)"
-  echo "    -u <pkg>                - upgrade package <pkg>"
+  echo "    -u <PKG>                - upgrade package <PKG>"
   echo "     u [-a | --all]          - upgrade all installed packages"
   echo 
-  echo "   [-r | --reinstall] <pkg> - reinstall package <pkg>"
+  echo "   [-r | --reinstall] <PKG> - reinstall package <PKG>"
   echo 
-  echo "   [-e | --erase] <pkg>     - remove package <pkg>"
+  echo "   [-e | --erase] <PKG>     - remove package <PKG>"
   echo "   --download-only          - only download packages"
   exit 1
 }
@@ -768,7 +773,7 @@ print_help()
 case "${0##*/}" in
   *cygsetup*)
 
-verbose="1"
+VERBOSE="1"
 if test $# -eq "0"; then 
   print_help
 fi 
@@ -777,69 +782,69 @@ process_args() {
   while :; do
     #echo "Processing arg: $1" 1>&9
     case $1 in
-    -q|--query|-l|--list|-f|--files|-d|--deps|-c|--check|-l|--list|-r|--reinstall|-ds|--source|-u|--upgrade|-i|--install|-e|--erase|-h|--help|--show|--info)
-      if [ -z "$mode" ]; then
-      mode="$1"
+    -q|--query|-l|--list|-f|--files|-d|--deps|-c|--check|-l|--list|-r|--reinstall|-ds|--source|-u|--upgrade|-i|--install|-e|--erase|-h|--help|--SHOW|--info)
+      if [ -z "$MODE" ]; then
+      MODE="$1"
      else
        break
      fi
      shift ;;
       --match)
-         what="${2%%[!A-Za-z]*}"
-         expr="${2#*[!A-Za-z]}"
-         comp=${2%%"$expr"}
-         comp=${comp#$what}
-         case "$comp" in
+         WHAT="${2%%[!A-Za-z]*}"
+         EXPR="${2#*[!A-Za-z]}"
+         COMP=${2%%"$EXPR"}
+         COMP=${COMP#$WHAT}
+         case "$COMP" in
            "!=" | "!") GREP_ARGS="-v" ;;
            *) GREP_ARGS="" ;;
          esac
          shift 2
-         pkgs=`get_all_package_info | grep -i $GREP_ARGS -E "\|$what[^|]*($expr)" | sed 's,^@ ,, ; s,|.*,,'`
-         echo "Packages:" $pkgs 1>&9
-         set -- "$@" $pkgs
+         PKGS=`get_all_package_info | grep -i $GREP_ARGS -E "\|$WHAT[^|]*($EXPR)" | sed 's,^@ ,, ; s,|.*,,'`
+         echo "Packages:" $PKGS 1>&9
+         set -- "$@" $PKGS
       ;;
-      --list-only*) mode="-r" LIST_ONLY="true"; shift ;; 
-      --download*) mode="-r" DOWNLOAD_ONLY="true"; shift ;; 
-      --root=*) ROOT=${1#*=} ; shift ;;
+      --list-only*) MODE="-r" LIST_ONLY="true"; shift ;; 
+      --download*) MODE="-r" DOWNLOAD_ONLY="true"; shift ;; 
+      --ROOT=*) ROOT=${1#*=} ; shift ;;
       --force) FORCE=true; shift ;;
-      --arch=*) echo "Setting arch to ${1#*=}" 1>&9 ; arch=`get_arch_suffix ${1#*=}` ;  shift ;;
-      --mirror=*) set_mirror="${set_mirror:+$set_mirror }${1#*=}"; shift ;;
+      --ARCH=*) echo "Setting ARCH to ${1#*=}" 1>&9 ; ARCH=`get_arch_suffix ${1#*=}` ;  shift ;;
+      --mirror=*) SET_MIRROR="${SET_MIRROR:+$SET_MIRROR }${1#*=}"; shift ;;
       *) break ;;
     esac
   done
-  params=$*
+  PARAMS=$*
 }
 
 
 get_options_params() {
   while [ $# -gt 0 -a "${1#-}" != "$1" ]; do
-    option="${option:+$option
+    OPTION="${OPTION:+$OPTION
 }$1"; shift
   done
-  params=$*
+  PARAMS=$*
 }
 
 process_args "$@"
-set -- $params
+set -- $PARAMS
 
 get_options_params "$@"
-set -- $option $params
+set -- $OPTION $PARAMS
 
-if [ "$set_mirror" ]; then
-    setup_ini_loaded=
+if [ "$SET_MIRROR" ]; then
+    SETUP_INI_LOADED=
     get_mirror_list
     build_area_list
-    set_new_mirror $set_mirror
+    set_new_mirror $SET_MIRROR
     config_write
-    if test "$mirror" != "$origin_mirror" || test -z "$setup_ini_loaded"; then 
+    if test "$mirror" != "$ORIGIN_MIRROR" || test -z "$SETUP_INI_LOADED"; then 
       load_setup_ini $mirror
     fi
     config_print
 fi
 
 while :; do
-      #echo "mode=$mode" 1>&9
-  case $mode in
+      #echo "MODE=$MODE" 1>&9
+  case $MODE in
     --mirror)
       get_mirror_list
       build_area_list
@@ -847,13 +852,13 @@ while :; do
       ;;
   
     --set-area*)
-      area=$value
+      area=$VALUE
       ;;
     
-    --info | --show)
+    --info | --SHOW)
     
-    for p in $params; do
-			get_package_info "$p" | sed 's/^@ /Package: /
+    for P in $PARAMS; do
+			get_package_info "$P" | sed 's/^@ /Package: /
 /desc:/ {
 	s/sdesc: "\([^"]*\)"/Short Description: \1/
 	s/ldesc: "\([^"]*\)"/Long Description: \1/
@@ -869,44 +874,44 @@ s/source: \(.*\)/Source: \1/'
     ;;
     
     -q | --query)
-      echo "option=$option" 1>&9
-        case $option in 
+      echo "OPTION=$OPTION" 1>&9
+        case $OPTION in 
           # all packages 
           -a |--all)
             cat $DB | sed 's#.tar.*##g' | gawk '{ n = match($2,/-[0-9][^/a-zA-Z]/); if (n > 0) release=substr($2,n+1); printf("%-20s %s\n", $1,release) }' | sort
               ;;
           # list package files  
           -l | --list)
-            if test -z "$params"; then
+            if test -z "$PARAMS"; then
               echo "usage: $0 -q -l <package>"
               exit 1
             fi
-            $0 -q "^$params"
-            if test -e "$DB_ROOT/$params.lst.gz"; then
-              find $DB_ROOT -name "$params.lst.gz" -exec zcat {} \; | grep -v "/$" | gawk '{ print "\t" $1 }'
+            $0 -q "^$PARAMS"
+            if test -e "$DB_ROOT/$PARAMS.lst.gz"; then
+              find $DB_ROOT -NAME "$PARAMS.lst.gz" -exec zcat {} \; | grep -v "/$" | gawk '{ print "\t" $1 }'
             else    
               echo "no files available" 
             fi 
             ;;
           # find package 
           -f | --files)
-            PACKAGES=`find $DB_ROOT -name '*.lst.gz'`
-            for i in $PACKAGES; do 
-              FILES=`zcat $i | egrep "$params"`
+            packages=`find $DB_ROOT -NAME '*.lst.gz'`
+            for i in $packages; do 
+              FILES=`zcat $i | egrep "$PARAMS"`
               if test -n "$FILES"; then
                 PACKAGE_NAME=`echo $i | sed "s#.lst.gz##; s#$DB_ROOT/##;"`
                 echo $PACKAGE_NAME
-                for j in $FILES; do 
-                  echo -e "\t" $j
+                for J in $FILES; do 
+                  echo -e "\t" $J
                 done
                 echo 
               fi
             done
             ;;
           -d | --deps)
-            for i in `echo $params`; do 
+            for i in `echo $PARAMS`; do 
               build_dep_list "$i"
-              echo "$ret"
+              echo "$RET"
             done
             ;;
           esac
@@ -914,28 +919,28 @@ s/source: \(.*\)/Source: \1/'
     # check files of a package 
     -c | --check)
       # get installed packages 
-      PACKAGES=`cat $DB | grep -v "INSTALLED" | gawk '{ print db_root "/" $1 ".lst.gz" }' db_root=$DB_ROOT`
-      for i in $PACKAGES; do 
+      packages=`cat $DB | grep -v "installed" | gawk '{ print db_root "/" $1 ".lst.gz" }' db_root=$DB_ROOT`
+      for i in $packages; do 
         # get file list 
         FILES=`zcat $i | grep -v "/$i"`
-        if test -n "$verbose"; then 
+        if test -n "$VERBOSE"; then 
           echo -n "checking package $i"
         fi 
   
         # create package name 
     
         # check if file is installed 
-        repair=""
-        for j in $FILES; do 
-          if test -f "/$j"; then
+        REPAIR=""
+        for J in $FILES; do 
+          if test -f "/$J"; then
             echo ""
           else 
-            repair="1"
-            echo "file $j is deleted" 
+            REPAIR="1"
+            echo "FILE $J is deleted" 
           fi
         done 
-        if test -n "$repair"; then 
-          if test -n "$verbose"; then 
+        if test -n "$REPAIR"; then 
+          if test -n "$VERBOSE"; then 
             echo "... has to be repaired "
           else 
             echo "$i"
@@ -946,22 +951,22 @@ s/source: \(.*\)/Source: \1/'
       done
       ;;      
   #    *)
-  #      if test -z "$option"; then
+  #      if test -z "$OPTION"; then
   #        echo "usage: $0 -q <package>"
   #        exit 1
   #      fi
-  #      cat $DB | grep "$option" | sed 's#.tar.*##g' | gawk '{ n = match($2,/-[0-9][^/a-zA-Z]/); if (n > 0) release=substr($2,n+1); if (release == "") release = "no release available"; printf("%-20s %s\n", $1,release) }' | sort
+  #      cat $DB | grep "$OPTION" | sed 's#.tar.*##g' | gawk '{ n = match($2,/-[0-9][^/a-zA-Z]/); if (n > 0) release=substr($2,n+1); if (release == "") release = "no release available"; printf("%-20s %s\n", $1,release) }' | sort
   #      ;;
   
     # search for packages in a local package tree 
     -l | --list)
-        case $option in 
+        case $OPTION in 
           # all packages 
           -a | --all)
             list_all_packages
           ;;
           *) 
-            for i in `echo $option $params`; do 
+            for i in `echo $OPTION $PARAMS`; do 
               list_package "$i"
             done
           ;;
@@ -970,17 +975,17 @@ s/source: \(.*\)/Source: \1/'
   
     # install packages from a local package tree 
     -r | --reinstall)
-      case $option in 
+      case $OPTION in 
         # all packages 
         -a | --all)
         ;;
         *)
         pkgname=""
-        for i in `echo $option $params`; do 
+        for i in `echo $OPTION $PARAMS`; do 
   # do not reinstall depending packages
   #        build_dep_list "$i"
           get_install_url_path "$i"
-          install_packages "$ret"  
+          install_packages "$RET"  
         done 
       esac
         ;;  
@@ -988,27 +993,27 @@ s/source: \(.*\)/Source: \1/'
     # download source 
     -ds | --source)
         pkgname=""
-        for i in `echo $option $params`; do 
+        for i in `echo $OPTION $PARAMS`; do 
           get_source_url_path "$i"
-          install_packages "$ret"  "source"
+          install_packages "$RET"  "source"
         done
         ;;
     
     # upgrade packages 
     -u | --upgrade)
-      case $option in 
+      case $OPTION in 
         # all packages 
         -a | --all)
           list_packages_for_upgrade "" 
-          get_install_url_path "$ret"
-          #install_packages "$ret"
+          get_install_url_path "$RET"
+          #install_packages "$RET"
         ;;
         *)
         pkgname=""
-        for i in `echo $option $params`; do 
+        for i in `echo $OPTION $PARAMS`; do 
           list_packages_for_upgrade "$i"
-          get_install_url_path "$ret"
-          install_packages "$ret"  
+          get_install_url_path "$RET"
+          install_packages "$RET"  
         done 
       esac
         ;;  
@@ -1016,29 +1021,29 @@ s/source: \(.*\)/Source: \1/'
   
     # install packages from a local package tree 
     -i | --install)
-      process_args $params
-      get_options_params $params
+      process_args $PARAMS
+      get_options_params $PARAMS
       
-      case $option in 
+      case $OPTION in 
         # all packages 
         -a | --all)
         ;;
         *)
         pkgname=""
-        for i in `echo $option $params`; do 
+        for i in `echo $OPTION $PARAMS`; do 
           build_dep_list "$i"
-          check_for_not_installed_packages "$ret"
-          get_install_url_path "$ret"
-          install_packages "$ret"
+          check_for_not_installed_packages "$RET"
+          get_install_url_path "$RET"
+          install_packages "$RET"
         done
       esac
         ;;  
   
     # remove installed package 
     -e | --erase)
-      case $option in 
+      case $OPTION in 
         *)
-        for i in `echo $option $params`; do 
+        for i in `echo $OPTION $PARAMS`; do 
           echo $i
           remove_package_from_cygwin_db "$i"
         done 
