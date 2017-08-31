@@ -264,7 +264,7 @@ list_all_mirrors()
 
 load_setup_ini()
 {
-mkdir -P "$DB_ROOT/"
+mkdir -p "$DB_ROOT/"
 rm -f "$DB_ROOT/setup.ini"
 for URL in $MIRROR_URL; do
   echo $URL 1>&9
@@ -579,7 +579,7 @@ $SHOW "install_packages \""$1"\" \""$2"\""
 #    TMP_file_name=`echo "$RELPATH" | sed "s|.*/\([^/]\+\)/\+\([^/]\+\)/\+release/|$TMPDIR/cygsetup/\1/\2/release/|"`
     TMP_DIR_NAME=`dirname "$TMP_FILE_NAME"`
     
-    mkdir -P "$TMP_DIR_NAME"
+    mkdir -p "$TMP_DIR_NAME"
 
     if test "$2" = "source"; then 
       MYROOT=$ROOT/usr/src
@@ -626,7 +626,7 @@ $SHOW "install_packages \""$1"\" \""$2"\""
                TARGET=${LINE##*"annot hard link to '"}
                TARGET=${TARGET%%"': "*}
                rm -f /"$LINK"
-               mkdir -P "$(dirname "/$LINK")"
+               mkdir -p "$(dirname "/$LINK")"
                ln -svf "/$TARGET" /"$LINK"
 #               echo "Hard link: $LINK $TARGET" 1>&9
              ;;
